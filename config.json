@@ -1,0 +1,11 @@
+{
+  "databaseConfig": {
+    "DB_USER": "postgres",
+    "DB_HOST": "localhost",
+    "DB_PORT": "5432",
+    "DB_PASSWORD": "postgres",
+    "DB_NAME": "tanzim_software"
+  },
+  "chrome_path": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "chrome_path2": "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
+}
