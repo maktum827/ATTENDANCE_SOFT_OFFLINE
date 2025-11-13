@@ -46,9 +46,7 @@ export default function AdmitForm(rowData) {
 
   const { data: userData, isLoading: userLoading } = useGetUsersQuery();
   const users = userData?.users || [];
-
   const [photoPreview, setPhotoPreview] = useState(null);
-  const [defaultId, setDefaultId] = useState(0);
   const year = Number(new Date().getFullYear().toString().slice(-2));
 
   const defaultValues = {

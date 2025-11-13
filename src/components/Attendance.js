@@ -18,6 +18,7 @@ import {
   gridFilteredSortedRowIdsSelector,
   GridToolbarContainer,
   GridToolbarQuickFilter,
+  gridVisibleColumnFieldsSelector,
   useGridApiContext,
 } from '@mui/x-data-grid';
 import { Delete, FileDownloadOutlined } from '@mui/icons-material';
@@ -35,27 +36,25 @@ import MetaData from './utils/metaData';
 import MakingReport from './minicomp/MakingReport';
 import MAKINGSUMMERYSHEET from './minicomp/MakingSummary';
 import useInsertAttendance from './utils/insertAttendance';
-import { BASE_URL_EXPRESS } from '../constants/othersConstants';
+import usePDFComponent from './prints/usePDFComponent';
+import DATATABLEPRINT from './prints/PrintDataTable';
 
 dayjs.extend(customParseFormat);
 
 // CustomToolbar Component
 function CustomToolbar() {
   const { t } = useTranslation();
-  const { code } = useAuth();
+  const { changePDFComponent } = usePDFComponent();
 
-  const { data } = useGetAttendanceQuery(code, {
-    skip: !code,
-    refetchOnMountOrArgChange: true,
-  });
+  const { data } = useGetAttendanceQuery({ refetchOnMountOrArgChange: true });
   const Attendance = data?.attendances || [];
 
-  const [currentRows, setCurrentRows] = useState([]);
   const [openReport, setOpenReport] = useState(false);
   const [openSummery, setOpenSummery] = useState(false);
   const [userType, setUserType] = useState('');
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
+  const [currentData, setCurrentData] = useState('');
 
   const localeText = {
     toolbarQuickFilterPlaceholder: t('typeHere'),
@@ -75,56 +74,47 @@ function CustomToolbar() {
   const handleDownloadFile = (event) => {
     setAnchorEl(event.currentTarget);
 
-    const rows = apiRef.current
-      .getAllRowIds()
-      .map((id) => apiRef.current.getRow(id));
-    const rowIds = gridFilteredSortedRowIdsSelector(apiRef);
-    const filteredRows = rows.filter((row) => rowIds.includes(row.id));
+    // Get all visible column fields
+    const visibleColumnFields = gridVisibleColumnFieldsSelector(apiRef);
 
-    const headerNames = apiRef.current
+    // Filter visible columns to exclude specific ones like '__check__' and 'actions'
+    const excludedFields = ['__check__', 'condition', 'actions'];
+    const filteredColumnFields = apiRef.current
       .getAllColumns()
-      .filter(
-        (column) =>
-          column.field !== '__check__' &&
-          column.field !== 'actions' &&
-          column.field !== 'imageUrl',
-      )
-      .map((column) => column.headerName || column.field);
+      .filter((column) => !excludedFields.includes(column.field))
+      .map((column) => column.field)
+      .filter((field) => visibleColumnFields.includes(field)); // Ensure only visible columns are included
 
-    setCurrentRows({
-      isStudent: true,
+    // Map visible and filtered column fields to header names
+    const headerNames = filteredColumnFields.map((field) => {
+      const column = apiRef.current.getColumn(field);
+      return column;
+    });
+
+    // Get filtered and sorted row IDs
+    const filteredRowIds = gridFilteredSortedRowIdsSelector(apiRef);
+
+    // Map row data to include only fields corresponding to filteredColumnFields
+    const filteredRows = filteredRowIds.map((id, index) => {
+      const row = apiRef.current.getRow(id);
+      const filteredRow = filteredColumnFields.reduce((acc, field) => {
+        acc[field] = row[field];
+        return acc;
+      }, {});
+      filteredRow.serial = index + 1; //Manually assign serial
+      return filteredRow;
+    });
+
+    const finalData = {
       heading: t('AttendancePannel'),
       columns: headerNames,
       rows: filteredRows,
-    });
+    };
+    setCurrentData(finalData);
   };
 
-  const handlePdf = async () => {
-    try {
-      const response = await fetch(
-        `${BASE_URL_EXPRESS}/api/pdf/adminis/attendance_list/${code}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(currentRows),
-        },
-      );
-
-      if (!response.ok) throw new Error('Network response was not OK');
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'attendance.pdf';
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      enqueueSnackbar(t(`Failed to make pdf: ${error}`), {
-        variant: 'error',
-      });
-    }
+  const handlePrint = async () => {
+    changePDFComponent(<DATATABLEPRINT data={currentData} />);
   };
 
   const handleClose = () => setAnchorEl(null);
@@ -147,7 +137,7 @@ function CustomToolbar() {
       <MAKINGSUMMERYSHEET
         openWindow={openSummery}
         handleClose={handleCloseSummery}
-        data={currentRows?.rows || []}
+        data={Attendance}
         isStudent
       />
       <Grid container alignItems="center">
@@ -199,7 +189,7 @@ function CustomToolbar() {
               {t('printReport')} ({t('officiants')})
             </MenuItem>
             <MenuItem onClick={summerySheet}>{t('summerySheet')}</MenuItem>
-            <MenuItem onClick={handlePdf}>{t('printData')}</MenuItem>
+            <MenuItem onClick={handlePrint}>{t('printData')}</MenuItem>
           </Menu>
         </Grid>
         <Grid
@@ -235,8 +225,7 @@ export default function AttendanceList() {
   const { code, logo } = useAuth();
   const { loading } = useInsertAttendance();
 
-  const { data, isLoading: attendanceLoading } = useGetAttendanceQuery(code, {
-    skip: !code,
+  const { data, isLoading: attendanceLoading } = useGetAttendanceQuery({
     refetchOnMountOrArgChange: true,
   });
 
@@ -273,23 +262,13 @@ export default function AttendanceList() {
 
     return {
       serial: index + 1,
-      id: s.id,
-      shift: s.shift,
-      userType: t(s.user_type),
-      idNo: s.id_no,
-      imageUrl: s?.photo_url || logo,
-      name: s.name,
-      department: s.department,
-      classOrDesignation: s.class_designation,
-      groupName: s.group_name ?? '---',
-      startTime: s.start_time,
-      endTime: s.end_time,
+      ...s,
+      classOrDesignation: s.class_name || s.designation,
       time: `${formatAMPM(s.start_time)} - ${formatAMPM(s.end_time)}`,
       gracePeriod: formatAMPM(extendedTime.format('HH:mm')),
       late: isLate ? `${lateByMinutes} ${t('minute')}` : '✔️',
       inOut: dayjs(s.timestamp).format('hh:mm A'),
-      status: t(s.condition),
-      punchStatus: s.condition,
+      department_1: s.department,
       date: dayjs(s.created_at).format('YYYY-MM-DD'),
     };
   });
@@ -302,25 +281,28 @@ export default function AttendanceList() {
   };
 
   const columns = [
-    { field: 'serial', headerName: t('serialNo'), maxWidth: 50, flex: 1 },
-    { field: 'shift', headerName: t('shift'), maxWidth: 120, flex: 1 },
-    { field: 'userType', headerName: t('type'), maxWidth: 80, flex: 1 },
+    { field: 'serial', headerName: t('serialNo'), maxWidth: 50 },
+    { field: 'shift_name', headerName: t('shift'), maxWidth: 120 },
     {
-      field: 'idNo',
+      field: 'user_type',
+      headerName: t('type'),
+      maxWidth: 80,
+      renderCell: (params) => <Box>{t(params.value)}</Box>,
+    },
+    {
+      field: 'user_id',
       headerName: t('idNo'),
       sortable: true,
       maxWidth: 80,
-      flex: 1,
     },
     {
-      field: 'imageUrl',
+      field: 'photo_path',
       headerName: t('picture'),
       width: 80,
       minWidth: 80,
-      flex: 0,
       renderCell: (params) => (
         <img
-          src={`${BASE_URL}${params.value}`}
+          src={`local://${params.value}`}
           alt="User"
           style={{
             width: '30px',
@@ -331,30 +313,33 @@ export default function AttendanceList() {
         />
       ),
     },
-    { field: 'name', headerName: t('name'), maxWidth: 150, flex: 1 },
+    { field: 'name', headerName: t('name'), maxWidth: 150 },
     {
-      field: 'department',
+      field: 'department_1',
       headerName: t('department'),
-      maxWidth: 100,
-      flex: 1,
+      maxWidth: 150,
     },
     {
       field: 'classOrDesignation',
       headerName: t('classOrDesignation'),
       maxWidth: 180,
-      flex: 1,
     },
-    { field: 'groupName', headerName: t('group'), maxWidth: 80, flex: 1 },
-    { field: 'time', headerName: t('time'), flex: 1 },
+    { field: 'group_name', headerName: t('group'), maxWidth: 80 },
+    { field: 'time', headerName: t('time') },
     {
       field: 'gracePeriod',
       headerName: t('gracePeriod'),
-      maxWidth: 85,
+      maxWidth: 150,
       flex: 1,
     },
     { field: 'inOut', headerName: t('inOut'), maxWidth: 85 },
-    { field: 'late', headerName: t('late'), maxWidth: 50, flex: 1 },
-    { field: 'status', headerName: t('status'), maxWidth: 80, flex: 1 },
+    { field: 'late', headerName: t('late'), maxWidth: 50 },
+    {
+      field: 'condition',
+      headerName: t('status'),
+      maxWidth: 80,
+      renderCell: (params) => <Box>{t(params.value)}</Box>,
+    },
     { field: 'date', headerName: t('date') },
     {
       field: 'actions',
@@ -376,7 +361,7 @@ export default function AttendanceList() {
 
   return (
     <Box className="globalShapeDesign">
-      <MetaData title="STUDENT ATTENDANCE" />
+      <MetaData title="ATTENDANCE" />
       <CustomDataGrid
         rows={rows}
         columns={columns}

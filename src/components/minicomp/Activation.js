@@ -21,7 +21,8 @@ import { useGetUserDataMutation } from '../../actions/onlineApi';
 import { CustomCrossButton } from '../styles/style';
 import { useConnectUserMutation } from '../../actions/othersApi';
 
-export function ActivationWindow({ openWindow, handleClose }) {
+// export function ActivationWindow({ openWindow, handleClose }) {
+export default function ActivationWindow({ openWindow, handleClose }) {
   const { t } = useTranslation();
   const { enqueueSnackbar } = useSnackbar();
   const [activationKey, setActivationKey] = useState('');
@@ -155,11 +156,3 @@ export function ActivationWindow({ openWindow, handleClose }) {
     </Dialog>
   );
 }
-
-// ✅ PropTypes for ESLint and clarity
-ActivationWindow.propTypes = {
-  openWindow: PropTypes.bool.isRequired,
-  handleClose: PropTypes.func.isRequired,
-};
-
-export default ActivationWindow;

@@ -444,7 +444,7 @@ def get_today_attendance():
 def get_device_capacity():
     try:
         device = request.json
-        zk = ZK(device['ipAddress'], port=int(device['port']), timeout=5)
+        zk = ZK(device['ip'], port=int(device['port']), timeout=5)
         conn = zk.connect()
         if conn:
             conn.disable_device()
@@ -455,7 +455,7 @@ def get_device_capacity():
 
             # Extract and return only serializable info
             capacity_info = {
-                "ip": device['ipAddress'],
+                "ip": device['ip'],
                 "users_capacity": conn.users_cap,
                 "users_used": len(conn.get_users()),
                 "cards_capacity": conn.users_cap,  # assumed
@@ -480,7 +480,7 @@ def get_device_capacity():
 def free_device_data():
     try:
         device = request.json
-        zk = ZK(device['ipAddress'], port=int(device['port']), timeout=5)
+        zk = ZK(device['ip'], port=int(device['port']), timeout=5)
         conn = zk.connect()
         if conn:
             conn.disable_device()
@@ -498,7 +498,7 @@ def free_device_data():
 def close_device():
     try:
         device = request.json
-        zk = ZK(device['ipAddress'], port=int(device['port']), timeout=5)
+        zk = ZK(device['ip'], port=int(device['port']), timeout=5)
         conn = zk.connect()
         if conn:
             conn.disable_device()
@@ -515,7 +515,7 @@ def close_device():
 def format_device():
     try:
         device = request.json
-        zk = ZK(device['ipAddress'], port=int(device['port']), timeout=5)
+        zk = ZK(device['ip'], port=int(device['port']), timeout=5)
         conn = zk.connect()
         if conn:
             conn.disable_device()
@@ -575,7 +575,6 @@ def insert_past_logs():
             except (json.JSONDecodeError, TypeError):
                 rule["users"] = []
             rules.append(rule)
-        con_db.close()
 
         data = request.get_json()
 
@@ -609,7 +608,6 @@ def insert_past_logs():
                 attendance_logs = conn_device.get_attendance()
                 users = conn_device.get_users()
 
-
                 if not attendance_logs:
                     results.append({
                         'ip': ip_address,
@@ -621,12 +619,7 @@ def insert_past_logs():
                     conn_device.disconnect()
                     continue
 
-                con_db = sqlite3.connect(f"{db_dir}/tanzim-academy-attendance/local_db_offline.db")
-                con_db.row_factory = sqlite3.Row
-                cur = con_db.cursor()
-
                 sms_infos = []
-
                 for log in attendance_logs:
                     user = next((u for u in users if u.user_id == log.user_id), None)
                     if not user:
@@ -685,15 +678,11 @@ def insert_past_logs():
 
                     cur.execute("""
                         SELECT * FROM attendance_logs
-                        WHERE id_no = ? AND condition = ? AND shift = ? AND DATE(created_at) = DATE('now')
+                        WHERE user_id = ? AND condition = ? AND shift_name = ? AND DATE(created_at) = DATE('now')
                     """, (id_no, matched_rule["condition"], matched_rule["shift_name"]))
 
                     if cur.fetchone():
                         continue
-
-                    # print(log_user)
-                    # print(user_data)
-                    # return jsonify({'error': 'Invalid device data format'}), 400
 
                     cur.execute("""
                         INSERT INTO attendance_logs (
@@ -746,17 +735,15 @@ def insert_past_logs():
                     ))
 
                     con_db.commit()
+                    conn_device.enable_device()
+                    conn_device.clear_attendance()
+                    conn_device.disconnect()
 
                     if matched_rule.get('auto_sms') == True:
                         sms_infos.append({
                             "name": f"{user.name} - True",
                             "message": matched_rule.get('message', '')
                         })
-
-                conn_device.enable_device()
-                # conn_device.clear_attendance()
-                conn_device.disconnect()
-                con_db.close()
 
                 results.append({
                     'ip': ip_address,
@@ -768,6 +755,7 @@ def insert_past_logs():
                 })
 
             except Exception as e:
+                print(e)
                 logging.error(f"[{ip_address}] Device processing failed: {e}")
                 results.append({
                     'ip': ip_address,
@@ -777,7 +765,7 @@ def insert_past_logs():
                     'message': str(e)
                 })
                 continue
-
+        con_db.close()
         return jsonify({
             'total_devices': total_devices,
             'results': results
@@ -802,7 +790,6 @@ def get_grace_end_time(rule):
     return start + timedelta(minutes=grace_minutes)
 
 def get_absent_users(rule, attendances):
-
     con_db = sqlite3.connect(f"{db_dir}/tanzim-academy-attendance/local_db_offline.db")
     con_db.row_factory = sqlite3.Row
     cur = con_db.cursor()
@@ -1413,127 +1400,8 @@ def add_user():
         print("❌ Error:", e)
         return jsonify({"error": str(e)}), 500
 
-
 @app.route('/api/zkteco/get_users', methods=['GET'])
 def get_users():
-    try:
-        con_db = sqlite3.connect(f"{db_dir}/tanzim-academy-attendance/local_db_offline.db")
-        con_db.row_factory = sqlite3.Row
-        cur = con_db.cursor()
-
-        cur.execute("SELECT * FROM users")
-        rows = cur.fetchall()
-
-        # Convert sqlite3.Row objects to dicts
-        users = [dict(row) for row in rows]
-
-        con_db.close()
-        return jsonify({"users": users}), 200
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
-
-
-########### HANDLE OFFICIANTS ################
-@app.route('/api/zkteco/add_officiant', methods=['POST'])
-def add_officiant():
-    try:
-        # --- 1️⃣ Get form data ---
-        user_id = request.form.get('id')  # This is DB id (for update)
-        idNo = request.form.get('user_id')
-        name = request.form.get('name')
-        dob = request.form.get('dob')
-        gender = request.form.get('gender')
-        department = request.form.get('department')
-        class_name = request.form.get('class_name')
-        group_name = request.form.get('group_name')
-        residence = request.form.get('residence')
-        guardian = request.form.get('guardian')
-        contact = request.form.get('contact')
-        email = request.form.get('email')
-        address = request.form.get('address')
-        admission_date = request.form.get('admission_date')
-        emergency_contact = request.form.get('emergency_contact')
-        status = request.form.get('status')
-        photo = request.files.get('photo')
-
-        # --- 2️⃣ Connect to DB ---
-        db_path = os.path.join(db_dir, "tanzim-academy-attendance/local_db_offline.db")
-        con_db = sqlite3.connect(db_path)
-        con_db.row_factory = sqlite3.Row
-        cur = con_db.cursor()
-
-        # --- 3️⃣ If `user_id` provided → UPDATE ---
-        if user_id:
-            # Fetch old photo
-            cur.execute("SELECT photo_path FROM users WHERE id = ?", (user_id,))
-            old = cur.fetchone()
-            old_photo = old["photo_path"] if old else None
-
-            # Handle new photo
-            if photo:
-                filename = f"{timestamp}_{photo.filename}"
-                file_path = os.path.join(UPLOAD_FOLDER_PHOTO, filename)
-                photo.save(file_path)
-                photo_path = filename
-
-                # Delete old photo if exists
-                if old_photo:
-                    old_path = os.path.join(UPLOAD_FOLDER_PHOTO, old_photo)
-                    if os.path.exists(old_path):
-                        os.remove(old_path)
-            else:
-                photo_path = old_photo  # keep old one if no new photo uploaded
-
-            # Update query
-            cur.execute("""
-                UPDATE users SET
-                    user_id=?, name=?, dob=?, gender=?, department=?, class_name=?, group_name=?,
-                    residence=?, guardian=?, contact=?, email=?, address=?, admission_date=?,
-                    emergency_contact=?, photo_path=?, status=?
-                WHERE id=?
-            """, (
-                idNo, name, dob, gender, department, class_name, group_name,
-                residence, guardian, contact, email, address, admission_date,
-                emergency_contact, photo_path, status, user_id
-            ))
-
-            con_db.commit()
-            con_db.close()
-            return jsonify({"message": "User updated successfully!"}), 200
-
-        # --- 4️⃣ Else → INSERT NEW ---
-        else:
-            photo_path = None
-            if photo:
-                filename = f"{timestamp}_{photo.filename}"
-                file_path = os.path.join(UPLOAD_FOLDER_PHOTO, filename)
-                photo.save(file_path)
-                photo_path = filename
-
-            cur.execute("""
-                INSERT INTO users (
-                    user_id, name, dob, gender, department, class_name, group_name, residence,
-                    guardian, contact, email, address, admission_date, emergency_contact,
-                    photo_path, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                idNo, name, dob, gender, department, class_name, group_name, residence,
-                guardian, contact, email, address, admission_date, emergency_contact,
-                photo_path, status
-            ))
-
-            con_db.commit()
-            con_db.close()
-            return jsonify({"message": "User added successfully!"}), 200
-
-    except Exception as e:
-        print("❌ Error:", e)
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/zkteco/get_officiants', methods=['GET'])
-def get_officiants():
     try:
         con_db = sqlite3.connect(f"{db_dir}/tanzim-academy-attendance/local_db_offline.db")
         con_db.row_factory = sqlite3.Row
@@ -1715,6 +1583,7 @@ def get_devices():
 
 @app.route('/api/zkteco/delete_device/<id>', methods=['DELETE'])
 def delete_device(id):
+    print(id)
     try:
         con_db = sqlite3.connect(f"{db_dir}/tanzim-academy-attendance/local_db_offline.db")
         con_db.row_factory = sqlite3.Row  # Access rows as dict-like objects
@@ -1726,6 +1595,133 @@ def delete_device(id):
         con_db.close()
         return jsonify({"success": True}), 200
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/zkteco/add_academy', methods=['POST'])
+def add_academy():
+    try:
+        # --- 1️⃣ Get form data ---
+        id = request.form.get('id')  # This is DB id (for update)
+        name = request.form.get('name')
+        address = request.form.get('address')
+        english_name = request.form.get('english_name')
+        english_address = request.form.get('english_address')
+        contact = request.form.get('contact')
+        email = request.form.get('email')
+        website = request.form.get('website')
+        facebook_page = request.form.get('facebook_page')
+        established_year = request.form.get('established_year')
+        institute_code = request.form.get('institute_code')
+        logo = request.files.get('logo_path')
+
+        # --- 2️⃣ Connect to DB ---
+        db_path = os.path.join(db_dir, "tanzim-academy-attendance/local_db_offline.db")
+        con_db = sqlite3.connect(db_path)
+        con_db.row_factory = sqlite3.Row
+        cur = con_db.cursor()
+
+        # --- 3️⃣ If `id` provided → UPDATE ---
+        if id:
+            # Fetch old logo
+            cur.execute("SELECT logo_path FROM academy WHERE id = ?", (id,))
+            old = cur.fetchone()
+            old_logo = old["logo_path"] if old else None
+
+            # Handle new logo
+            if logo:
+                filename = f"{timestamp}_{logo.filename}"
+                file_path = os.path.join(UPLOAD_FOLDER_PHOTO, filename)
+                logo.save(file_path)
+                logo_path = filename
+
+                # Delete old logo if exists
+                if old_logo:
+                    old_path = os.path.join(UPLOAD_FOLDER_PHOTO, old_logo)
+                    if os.path.exists(old_path):
+                        os.remove(old_path)
+            else:
+                logo_path = old_logo  # keep old one if no new photo uploaded
+
+            # Update query
+            cur.execute("""
+                UPDATE academy SET
+                    name=?, address=?, english_name=?, english_address=?, contact=?, email=?,
+                    website=?, facebook_page=?, established_year=?, institute_code=?, logo_path=?
+                WHERE id=?
+            """, (
+                name, address, english_name, english_address, contact, email, website, facebook_page, established_year, institute_code, logo_path, id
+            ))
+
+            con_db.commit()
+            con_db.close()
+            return jsonify({"message": "Academy updated successfully!"}), 200
+
+        # --- 4️⃣ Else → INSERT NEW ---
+        else:
+            logo_path = None
+            if logo:
+                filename = f"{timestamp}_{logo.filename}"
+                file_path = os.path.join(UPLOAD_FOLDER_PHOTO, filename)
+                logo.save(file_path)
+                logo_path = filename
+
+            cur.execute("""
+                INSERT INTO academy (
+                    id,
+                    name,
+                    address,
+                    english_name,
+                    english_address,
+                    contact,
+                    email,
+                    website,
+                    facebook_page,
+                    established_year,
+                    institute_code,
+                    logo_path
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                timestamp,
+                name,
+                address,
+                english_name,
+                english_address,
+                contact,
+                email,
+                website,
+                facebook_page,
+                established_year,
+                institute_code,
+                logo_path
+            ))
+            con_db.commit()
+            con_db.close()
+            return jsonify({"message": "User added successfully!"}), 200
+    except Exception as e:
+        print("❌ Error:", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/zkteco/get_academy', methods=['GET'])
+def get_academy():
+    try:
+        con_db = sqlite3.connect(f"{db_dir}/tanzim-academy-attendance/local_db_offline.db")
+        con_db.row_factory = sqlite3.Row
+        cur = con_db.cursor()
+
+        cur.execute("SELECT * FROM academy")
+        academy = cur.fetchone()  # single record
+
+        if academy:
+            academy_dict = dict(academy)
+        else:
+            academy_dict = None
+
+        con_db.close()
+        return jsonify({"academy": academy_dict}), 200
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 # pyinstaller --onefile --noconsole zk_server.py

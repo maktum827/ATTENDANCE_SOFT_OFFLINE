@@ -621,5 +621,12 @@
   "ip": "আইপি এড্রেস",
   "All": "শিক্ষার্থী/অফিসিয়ান্ট",
   "confirmInfo": "দয়া করে ইন্টারনেট কানেকশন, এক্টিভেশন, শিক্ষার্থীদের লিস্ট কনফার্ম করুন।",
-  "tryAgain": "আবার ট্রাই করুন"
+  "tryAgain": "আবার ট্রাই করুন",
+  "academicName": "প্রতিষ্ঠানের নাম",
+  "clickHereToUploadLogo": "লগো আপলোড করার জন্য এখানে ক্লিক করুন।",
+  "facebook_page": "ফেসবুক পেজ",
+  "established_year": "স্থাপিত",
+  "institute_code": "প্রাতিষ্ঠানিক কোড",
+  "studentAttendanceReport": "শিক্ষার্থী হাজিরা রিপোর্ট",
+  "staffAttendanceReport": "অফিসিয়ান্ট হাজিরা রিপোর্ট"
 }

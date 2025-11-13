@@ -27,14 +27,6 @@ export const theme = (mode) =>
     components: {
       MuiCssBaseline: {
         styleOverrides: {
-          // '@global': {
-          //     html: {
-          //         WebkitTextSizeAdjust: '100%',
-          //         textSizeAdjust: '100%',
-          //         fontFamily: fontFamily,
-          //     },
-          // },
-
           '&.rootBox': {
             backgroundColor:
               mode === 'dark' ? '#181818' : 'rgba(244,247,254,255)',

@@ -1,5 +1,5 @@
 // React and related imports
-import React, { useState } from 'react';
+import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useTranslation } from 'react-i18next';
 
@@ -17,16 +17,14 @@ import {
 import Close from '@mui/icons-material/Close';
 
 // Custom imports
-import { useSnackbar } from 'notistack';
 import { CustomCrossButton } from '../styles/style';
-import { useGetTimeRulesQuery } from '../../actions/onlineApi';
-import useAuth from '../hooks/UseAuth';
-import { BASE_URL_EXPRESS } from '../../constants/othersConstants';
+import { useGetTimeRulesQuery } from '../../actions/zkTecoApi';
+import AttendanceReportPrint from '../prints/PrintReport';
+import usePDFComponent from '../prints/usePDFComponent';
 
 function MakingReport({ openWindow, handleClose, userType, Attendance }) {
   const { t } = useTranslation();
-  const { code } = useAuth();
-  const { enqueueSnackbar } = useSnackbar();
+  const { changePDFComponent } = usePDFComponent();
 
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
@@ -34,7 +32,7 @@ function MakingReport({ openWindow, handleClose, userType, Attendance }) {
   const [className, setClassName] = useState('');
   const [month, setMonth] = useState(new Date().getMonth() + 1);
 
-  const { data: rulesData } = useGetTimeRulesQuery(code, { skip: !code });
+  const { data: rulesData } = useGetTimeRulesQuery();
   const rules = rulesData?.rules || [];
 
   const filteredData =
@@ -42,9 +40,10 @@ function MakingReport({ openWindow, handleClose, userType, Attendance }) {
       ? Attendance?.filter((item) => item.user_type === 'Student')
       : Attendance?.filter((item) => item.user_type === 'Officiant');
 
-  const uniqueClassNames = [
-    ...new Set(filteredData?.map((item) => item.class_designation)),
-  ];
+  const uniqueClasses =
+    userType === 'Student'
+      ? [...new Set(filteredData?.map((item) => item.class_name))]
+      : [...new Set(filteredData?.map((item) => item.designation))];
 
   const uniqueShifts = [...new Set(rules?.map((r) => r.shift_name))];
 
@@ -70,7 +69,7 @@ function MakingReport({ openWindow, handleClose, userType, Attendance }) {
 
     // Filter data based on selected filters
     const filteredStudent = filteredData.filter((item) => {
-      const classNameFromData = item.class_designation;
+      const classNameFromData = item.class_name;
       const date = new Date(item.created_at);
       const yearFromData = date.getFullYear();
       const monthFromData = date.getMonth() + 1;
@@ -79,7 +78,7 @@ function MakingReport({ openWindow, handleClose, userType, Attendance }) {
         yearFromData === year &&
         monthFromData === month &&
         item.condition === 'entry' &&
-        item.shift === shift
+        item.shift_name === shift
       );
     });
 
@@ -92,41 +91,13 @@ function MakingReport({ openWindow, handleClose, userType, Attendance }) {
 
     const reportData = {
       data: userType === 'Student' ? filteredStudent : filteredOfficiant,
-      class_name: className,
       year,
       month,
       type: userType,
       shift,
     };
 
-    try {
-      const response = await fetch(
-        `${BASE_URL_EXPRESS}/api/pdf/attendance_report/${code}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(reportData),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error('Network response was not OK');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'report.pdf';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      enqueueSnackbar(`PDF download failed ${error}`, { variant: 'error' });
-    }
+    changePDFComponent(<AttendanceReportPrint reportData={reportData} />);
 
     handleClose();
   };
@@ -155,7 +126,7 @@ function MakingReport({ openWindow, handleClose, userType, Attendance }) {
                     onChange={(e) => setClassName(e.target.value)}
                     required
                   >
-                    {uniqueClassNames.map((c) => (
+                    {uniqueClasses.map((c) => (
                       <MenuItem key={c} value={c}>
                         {c}
                       </MenuItem>

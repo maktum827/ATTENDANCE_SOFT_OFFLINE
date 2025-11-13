@@ -11,6 +11,7 @@ import MAIN from '../components/Root';
 import { theme as themeConfig } from '../components/styles/theme';
 import { ComponentProvider } from '../components/hooks/ComponentContext';
 import useInsertAttendance from '../components/utils/insertAttendance';
+import PrintProvider from '../components/prints/printProvider';
 
 // Create a custom cache for RTL AND LTR
 const ltrCache = createCache({
@@ -54,12 +55,14 @@ export default function App() {
             anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
           >
             <ComponentProvider>
-              <Routes>
-                <Route
-                  path="/"
-                  element={<MAIN handleToggleMode={handleToggleMode} />}
-                />
-              </Routes>
+              <PrintProvider>
+                <Routes>
+                  <Route
+                    path="/"
+                    element={<MAIN handleToggleMode={handleToggleMode} />}
+                  />
+                </Routes>
+              </PrintProvider>
             </ComponentProvider>
           </SnackbarProvider>
         </ThemeProvider>

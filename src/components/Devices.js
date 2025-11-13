@@ -19,20 +19,30 @@ import { GridActionsCellItem } from '@mui/x-data-grid';
 // Constants
 import {
   AddCircle,
+  AdUnits,
   Cancel,
   CheckCircle,
+  CleaningServices,
+  Clear,
   Close,
   Delete,
   Edit,
+  ReduceCapacity,
 } from '@mui/icons-material';
 import {
+  useCloseDeviceMutation,
   useConnectAttendanceDeviceMutation,
+  useDeleteDeviceMutation,
+  useFormatDeviceMutation,
+  useFreeDataMutation,
   useGetDevicesQuery,
 } from '../actions/zkTecoApi.js';
 import NEWDEVICEFORM from './DeviceForm.js';
 import { CustomDataGrid } from './utils/useDataGridColumns.js';
 import { CustomCrossButton } from './styles/style.js';
 import MetaData from './utils/metaData.js';
+import DeviceCapacity from './minicomp/DeviceCapacity.js';
+import GETCONFIRMATION from './minicomp/GetConfirmation.js';
 
 export default function ATTENDANCEDEVICES() {
   const { t } = useTranslation();
@@ -46,10 +56,17 @@ export default function ATTENDANCEDEVICES() {
     { data: devicesData, isLoading: connectLoading },
   ] = useConnectAttendanceDeviceMutation();
 
-  // const [deleteAttendanceDevice] = useDeleteAttendanceDeviceMutation();
+  const [freeData] = useFreeDataMutation();
+  const [closeDevice] = useCloseDeviceMutation();
+  const [formatDevice] = useFormatDeviceMutation();
+
+  const [deleteAttendanceDevice] = useDeleteDeviceMutation();
 
   const [open, setOpen] = React.useState(false);
   const [selectedData, setSelectedData] = React.useState(null);
+  const [openCapacity, setOpenCapacity] = React.useState(false);
+  const [openConfirmation, setOpenConfirmation] = React.useState(false);
+  const [deviceData, setDeviceData] = React.useState(false);
 
   const localeText = {
     footerRowSelected: (count) =>
@@ -61,7 +78,7 @@ export default function ATTENDANCEDEVICES() {
   };
 
   const handleDelete = async (id) => {
-    // await deleteAttendanceDevice(id);
+    await deleteAttendanceDevice(id);
     enqueueSnackbar(t('successMessage'), { variant: 'success' });
   };
 
@@ -70,9 +87,8 @@ export default function ATTENDANCEDEVICES() {
     setOpen(true);
   };
 
-  const handleClose = () => {
-    setOpen(false);
-  };
+  const handleClose = () => setOpen(false);
+  const handleCloseConfirmation = () => setOpenConfirmation(false);
 
   const handleEdit = (rowData) => {
     setSelectedData(rowData);
@@ -84,6 +100,45 @@ export default function ATTENDANCEDEVICES() {
       connectAttendanceDevice(devices);
     }
   }, [devices, connectAttendanceDevice]);
+
+  const freeDeviceData = async (singleDevice) => {
+    const dvcData = {
+      ip: singleDevice.ip,
+      port: singleDevice.port,
+    };
+    await freeData(dvcData);
+    enqueueSnackbar(t('successMessage'), { variant: 'success' });
+  };
+
+  const handleCloseDevice = (deviceCloseData) => {
+    const dvcData = {
+      ip: deviceCloseData.ip,
+      port: deviceCloseData.port,
+    };
+    closeDevice(dvcData);
+    enqueueSnackbar(t('successMessage'), { variant: 'success' });
+  };
+
+  const handleClearData = (singleData) => {
+    setDeviceData(singleData);
+    setOpenConfirmation(true);
+  };
+
+  const handleDeviceCapacity = (singleData) => {
+    setDeviceData(singleData);
+    setOpenCapacity(true);
+  };
+  const handleCloseCapacity = () => setOpenCapacity(false);
+
+  const handleOk = () => {
+    setOpenConfirmation(false);
+    const dataDevice = {
+      ip: deviceData.ip,
+      port: deviceData.port,
+    };
+    formatDevice(dataDevice);
+    enqueueSnackbar(t('successMessage'), { variant: 'success' });
+  };
 
   const columns = [
     { field: 'id', headerName: t('serialNo'), headerClassName: 'CustomHeader' },
@@ -142,6 +197,54 @@ export default function ATTENDANCEDEVICES() {
         />,
         <GridActionsCellItem
           icon={
+            <ReduceCapacity
+              sx={{
+                color: 'green',
+              }}
+            />
+          }
+          label={`${t('deviceCapacity')}`}
+          onClick={() => handleDeviceCapacity(params.row)}
+          showInMenu
+        />,
+        <GridActionsCellItem
+          icon={
+            <CleaningServices
+              sx={{
+                color: 'green',
+              }}
+            />
+          }
+          label={`${t('cleanDevice')}`}
+          onClick={() => freeDeviceData(params.row)}
+          showInMenu
+        />,
+        <GridActionsCellItem
+          icon={
+            <AdUnits
+              sx={{
+                color: 'red',
+              }}
+            />
+          }
+          label={`${t('device')} ${t('close')}`}
+          onClick={() => handleCloseDevice(params.row)}
+          showInMenu
+        />,
+        <GridActionsCellItem
+          icon={
+            <Clear
+              sx={{
+                color: 'red',
+              }}
+            />
+          }
+          label={`${t('clearData')}`}
+          onClick={() => handleClearData(params.row)}
+          showInMenu
+        />,
+        <GridActionsCellItem
+          icon={
             <Delete
               sx={{
                 color: 'red',
@@ -149,7 +252,7 @@ export default function ATTENDANCEDEVICES() {
             />
           }
           label={t('delete')}
-          onClick={() => handleDelete(params.row)}
+          onClick={() => handleDelete(params.row.id)}
           showInMenu
         />,
       ],
@@ -168,6 +271,20 @@ export default function ATTENDANCEDEVICES() {
 
   return (
     <Box className="globalShapeDesign">
+      <Dialog open={openCapacity} onClose={handleCloseCapacity}>
+        <DeviceCapacity
+          handleClose={handleCloseCapacity}
+          deviceData={deviceData || {}}
+        />
+      </Dialog>
+      <Dialog open={openConfirmation} onClose={handleCloseConfirmation}>
+        <GETCONFIRMATION
+          handleClose={handleCloseConfirmation}
+          confirmationText="ডাটা ক্লিয়ার করলে এই ডিভাইসটির সমস্ত ডাটা ডিলিট হয়ে যাবে, আপনি কি সম্মত আছেন?"
+          handleOk={handleOk}
+        />
+      </Dialog>
+
       <Dialog open={open} maxWidth="xs">
         <CustomCrossButton
           onClick={handleClose}

@@ -14,17 +14,23 @@ export function GETCONFIRMATION({ handleClose, confirmationText, handleOk }) {
       <Typography variant="body1">{confirmationText}</Typography>
 
       <Box display="flex" justifyContent="flex-end" mt={2}>
-        <Button onClick={handleClose} variant="outlined" color="inherit">
-          {t('no')}
-        </Button>
         <Button
           type="button"
+          disableElevation
           onClick={handleOk}
           variant="contained"
           color="success"
           sx={{ ml: 1 }}
         >
           {t('yes')}
+        </Button>
+        <Button
+          disableElevation
+          onClick={handleClose}
+          variant="outlined"
+          color="inherit"
+        >
+          {t('no')}
         </Button>
       </Box>
     </Box>

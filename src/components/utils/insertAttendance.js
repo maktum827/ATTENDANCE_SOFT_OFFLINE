@@ -27,7 +27,7 @@ export default function useInsertAttendance() {
     };
 
     insertAttendance();
-    const interval = setInterval(insertAttendance, 5000); // every 60s
+    const interval = setInterval(insertAttendance, 60000); // every 60s
     return () => clearInterval(interval);
   }, [devices, insertPastLogs]);
 

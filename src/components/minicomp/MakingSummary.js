@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useForm, Controller } from 'react-hook-form';
 import dayjs from 'dayjs';
@@ -16,11 +16,10 @@ import Close from '@mui/icons-material/Close';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { t } from 'i18next';
-import { useSnackbar } from 'notistack';
 import { CustomCrossButton } from '../styles/style';
-import { useGetTimeRulesQuery } from '../../actions/onlineApi';
-import { BASE_URL_EXPRESS } from '../../constants/othersConstants';
-import useAuth from '../hooks/UseAuth';
+import { useGetTimeRulesQuery } from '../../actions/zkTecoApi';
+import usePDFComponent from '../prints/usePDFComponent';
+import SummaryAttendanceTable from '../prints/printSummary';
 
 function calculateLateDuration(graceTime, inOutTime) {
   if (!graceTime || !inOutTime) return 0;
@@ -39,10 +38,9 @@ function formatMinutes(minutes) {
 }
 
 function MAKINGSUMMERYSHEET({ openWindow, handleClose, data, isStudent }) {
-  const { code } = useAuth();
   const [shift, setShift] = useState('');
-  const { enqueueSnackbar } = useSnackbar();
-  const { data: rulesData } = useGetTimeRulesQuery(code, { skip: !code });
+  const { changePDFComponent } = usePDFComponent();
+  const { data: rulesData } = useGetTimeRulesQuery();
   const rules = rulesData?.rules || [];
 
   const uniqueShifts = Array.from(new Set(rules.map((r) => r.shift_name)));
@@ -134,31 +132,7 @@ function MAKINGSUMMERYSHEET({ openWindow, handleClose, data, isStudent }) {
       heading: `এক নজরে হাজিরা (${dayjs(dateFrom).format('YYYY-MM-DD')} থেকে ${dayjs(dateTo).format('YYYY-MM-DD')}), ${t('shift')}: ${shift}`,
     };
 
-    try {
-      const response = await fetch(
-        `${BASE_URL_EXPRESS}/api/pdf/summery_report/${code}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(finalData),
-        },
-      );
-
-      if (!response.ok) throw new Error('Network response was not OK');
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'summery.pdf';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      enqueueSnackbar(`PDF download failed ${error}`, { variant: 'error' });
-    }
-
+    changePDFComponent(<SummaryAttendanceTable data={finalData} />);
     handleClose();
   };
 

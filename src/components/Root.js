@@ -36,6 +36,7 @@ import useAuth from './hooks/UseAuth';
 import MetaData from './utils/metaData';
 // Third-Party Libraries
 import { BASE_URL_EXPRESS } from '../constants/othersConstants';
+import { useGetAcademyQuery } from '../actions/zkTecoApi';
 
 const drawerWidth = 220;
 const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(
@@ -99,7 +100,7 @@ const AppBar = styled(MuiAppBar, {
 }));
 
 export default function MAIN({ handleToggleMode }) {
-  const { academicName, logo } = useAuth();
+  const { name, logo_path: logoPath } = useAuth();
   // for handling components
   const { currentComponent } = useComponent();
   const { changeComponent } = useComponent();
@@ -184,16 +185,13 @@ export default function MAIN({ handleToggleMode }) {
               justifyContent="center"
               paddingRight="7px"
             >
-              {/* <Typography variant="h6" align='center'>
-                                {academicName}
-                            </Typography> */}
               <Chip
                 variant="outlined"
                 aling="center"
                 sx={{
                   fontSize: '1.1rem',
                 }}
-                label={academicName}
+                label={name || 'Academy name will be here'}
               />
             </Grid>
             <Grid
@@ -216,7 +214,7 @@ export default function MAIN({ handleToggleMode }) {
                   alignItems="center"
                 >
                   <Grid item>
-                    <IconButton onClick={handleClick5}>
+                    {/* <IconButton onClick={handleClick5}>
                       <StyledBadge
                         badgeContent={0}
                         color="primary"
@@ -224,7 +222,7 @@ export default function MAIN({ handleToggleMode }) {
                       >
                         <NotificationsIcon color="action" />
                       </StyledBadge>
-                    </IconButton>
+                    </IconButton> */}
                     <Popover
                       id={id}
                       open={open5}
@@ -294,7 +292,7 @@ export default function MAIN({ handleToggleMode }) {
             </IconButton>
             <Avatar
               alt="Logo"
-              src={`${BASE_URL_EXPRESS}${logo}`}
+              src={`local://${logoPath}`}
               sx={{
                 width: '55px',
                 height: '55px',

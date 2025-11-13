@@ -874,7 +874,7 @@ export default function RulesManager() {
 
   return (
     <Box className="globalShapeDesign">
-      <MetaData title="Rule LIST" />
+      <MetaData title="TIME RULES" />
       <DataGrid
         rows={rows}
         columns={columns}

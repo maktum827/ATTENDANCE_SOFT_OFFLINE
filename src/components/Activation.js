@@ -16,12 +16,11 @@ import {
 
 // Custom Actions and Utilities
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
-import useAuth from './hooks/UseAuth';
+import MetaData from './utils/metaData';
 import ActivationWindow from './minicomp/Activation';
 
 export default function ACTIVATIONSTATUS() {
   const { t } = useTranslation();
-  const { code, localIP } = useAuth();
   const [keyWindowOpen, setKeyWindowOpen] = useState(false);
 
   const handleKeyWindowOpen = () => {
@@ -38,6 +37,7 @@ export default function ACTIVATIONSTATUS() {
 
   return (
     <Box className="globalShapeDesign">
+      <MetaData title="CONNECTION" />
       <ActivationWindow
         openWindow={keyWindowOpen}
         handleClose={handleKeyWindowClose}
@@ -55,14 +55,12 @@ export default function ACTIVATIONSTATUS() {
             </ListItem>
             <ListItem disablePadding>
               <ListItemText
-                primary={`${t('status')}: ${code ? t('activated') : t('disconnected')}`}
+                // primary={`${t('status')}: ${code ? t('activated') : t('disconnected')}`}
+                primary={`${t('status')}: t('disconnected')}`}
               />
             </ListItem>
             <ListItem disablePadding>
-              <ListItemText primary={`${t('localIP')}: ${localIP}`} />
-            </ListItem>
-            <ListItem disablePadding>
-              <ListItemText primary={`${t('secretCode')}: ${code}`} />
+              <ListItemText primary={`${t('localIP')}: ${'localIP'}`} />
             </ListItem>
           </List>
         </nav>

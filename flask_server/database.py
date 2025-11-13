@@ -160,6 +160,27 @@ def create_db():
         );
     """)
 
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS academy (
+        id INTEGER,
+        name TEXT,
+        address TEXT,
+        english_name TEXT,
+        english_address TEXT,
+        contact TEXT,
+        email TEXT,
+        website TEXT,
+        facebook_page TEXT,
+        established_year TEXT,
+        institute_code TEXT,
+        logo_path TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- auto timestamp
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP   -- update manually or with trigger
+        );
+    """)
+
+
     # cur.execute("DROP TABLE attendance_logs")
     # rows = cur.fetchall()
     # for i in rows:

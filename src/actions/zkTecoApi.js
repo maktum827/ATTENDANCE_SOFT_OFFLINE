@@ -13,8 +13,23 @@ export const zkTecoApi = createApi({
     'Designations',
     'TimeRules',
     'Devices',
+    'Academy',
   ],
   endpoints: (builder) => ({
+    addAcademy: builder.mutation({
+      query: (formData) => ({
+        url: `/add_academy`,
+        method: 'POST',
+        body: formData,
+      }),
+      invalidatesTags: ['Academy'],
+    }),
+
+    getAcademy: builder.query({
+      query: () => `/get_academy`,
+      providesTags: ['Academy'],
+    }),
+
     freeData: builder.mutation({
       query: (deviceData) => ({
         url: `/free_data`,
@@ -308,4 +323,6 @@ export const {
   useGetDevicesQuery,
   useDeleteDeviceMutation,
   useGetConnectedDevicesQuery,
+  useAddAcademyMutation,
+  useGetAcademyQuery,
 } = zkTecoApi;

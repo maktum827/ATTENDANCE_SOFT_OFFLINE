@@ -14,10 +14,6 @@ export default function ABOUT() {
       <MetaData title="ABOUT" />
       <Box sx={{ width: '100%', maxWidth: 500, marginTop: 8 }}>
         <Typography variant="body1" align="left" gutterBottom>
-          * তানজিম হাজিরা সফটওয়্যারটি শুধুমাত্র ‘তানজিম একাডেমি’ সফটওয়্যার এর
-          সাথে ব্যবহারযোগ্য।
-        </Typography>
-        <Typography variant="body1" align="left" gutterBottom>
           * সফটওয়্যরটি ব্যাবহার করার জন্য জেট কে টেকো (ZKTeco) ব্র্যান্ডের একটি
           হাজিরা মেশিন কিনে নিতে হবে।
         </Typography>

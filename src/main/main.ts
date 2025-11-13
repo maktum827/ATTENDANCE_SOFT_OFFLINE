@@ -182,16 +182,23 @@ const createWindow = async () => {
 
   mainWindow.loadURL(resolveHtmlPath('index.html'));
 
-  mainWindow.on('ready-to-show', () => {
-    if (!mainWindow) {
-      throw new Error('"mainWindow" is not defined');
-    }
-    if (process.env.START_MINIMIZED) {
-      mainWindow.minimize();
-    } else {
-      mainWindow.show();
-    }
+  mainWindow.once('ready-to-show', () => {
+    if (!mainWindow) throw new Error('"mainWindow" is not defined');
+    mainWindow.maximize();
+    mainWindow.show();
+    mainWindow.focus();
   });
+
+  // mainWindow.on('ready-to-show', () => {
+  //   if (!mainWindow) {
+  //     throw new Error('"mainWindow" is not defined');
+  //   }
+  //   if (process.env.START_MINIMIZED) {
+  //     mainWindow.minimize();
+  //   } else {
+  //     mainWindow.show();
+  //   }
+  // });
 
   mainWindow.on('closed', () => {
     flaskProcess = null;
