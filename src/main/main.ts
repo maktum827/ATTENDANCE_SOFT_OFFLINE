@@ -13,16 +13,16 @@ import {
 // import log from 'electron-log';
 import installExtension, { REDUX_DEVTOOLS } from 'electron-devtools-installer';
 import dotenv from 'dotenv';
+import si from 'systeminformation';
 import { ChildProcess, exec, spawn } from 'child_process';
 import http from 'http';
-import server from '../../backend/server';
+import crypto from 'crypto';
 import { resolveHtmlPath } from './util';
 
 dotenv.config();
 
 // flask server
 let flaskProcess: ChildProcess | null = null;
-
 function startFlaskServer() {
   const flaskPort = 4009;
 
@@ -70,6 +70,39 @@ function startFlaskServer() {
   });
 }
 
+async function getHardwareId() {
+  const uuid = await si.uuid();
+  const baseboard = await si.baseboard();
+  const bios = await si.bios();
+  const network = await si.networkInterfaces();
+
+  // ✔ Clean destructured MAC retrieval
+  const macNumber =
+    network.find(({ mac }) => mac && mac !== '00:00:00:00:00:00') || {};
+
+  const parts = [
+    uuid.hardware || '',
+    baseboard.serial || '',
+    bios.serial || '',
+    macNumber || '',
+  ].join('|');
+
+  return crypto.createHash('sha256').update(parts).digest('hex');
+}
+
+// Expose hardware id and license read/write via IPC
+ipcMain.handle('get-hardware-id', async () => {
+  return getHardwareId();
+});
+
+// ipcMain.handle('read-license', () => {
+//   return readLicense();
+// });
+
+// ipcMain.handle('write-license', (event, lic) => {
+//   return writeLicense(lic);
+// });
+
 ipcMain.on('ipc-example', async (event, arg) => {
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
   console.log(msgTemplate(arg));
@@ -108,7 +141,7 @@ const installExtensions = async () => {
 let mainWindow: BrowserWindow | null = null;
 
 const createWindow = async () => {
-  server();
+  getHardwareId();
   // startFlaskServer();
   // if (!flaskProcess || flaskProcess.killed) {
   //   startFlaskServer();

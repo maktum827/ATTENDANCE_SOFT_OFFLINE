@@ -3,7 +3,7 @@
 from flask import Flask, request, jsonify, Response, stream_with_context
 from zk import ZK, const
 from datetime import datetime, timedelta
-import threading, os, json
+import threading, os, json, base64, hashlib
 from threading import Thread, Lock
 # Ensure UTF-8 encoding
 from flask_cors import CORS
@@ -12,6 +12,8 @@ from database import create_db
 db_dir = os.getenv("APPDATA")
 from waitress import serve
 from queue import Queue, Empty
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import unpad
 from pathlib import Path
 app = Flask(__name__)
 
@@ -58,6 +60,57 @@ lock = Lock()
 @app.route("/health", methods=["GET"])
 def health_check():
     return {"status": "ok"}, 200
+
+def check_activation():
+    """
+    Returns a tuple: (is_active: bool, expiry_date: str, hardware_id: str)
+    """
+    secret_key="@mishok"
+
+    con_db = sqlite3.connect(f"{db_dir}/tanzim-academy-attendance/local_db_offline.db")
+    con_db.row_factory = sqlite3.Row
+    cur = con_db.cursor()
+
+    cur.execute("SELECT * FROM activation")
+    activation = cur.fetchone()
+    activation_dict = dict(activation) if activation else None
+
+    is_active = False
+    expiry_date = None
+    hardware_id = None
+
+    if activation_dict and activation_dict.get('license_key'):
+        try:
+            data_decrypt = decrypt_cryptojs(activation_dict.get('license_key'), secret_key)
+            split_data = data_decrypt.split('misho')
+            # Expected: [hardware_id, secretCode, expiry_date_str, activated_at_str]
+            hardware_id = split_data[0]
+
+            # Parse expiry date
+            expiry_at_dt = datetime.strptime(split_data[2], "%a, %d %b %Y %H:%M:%S %Z")
+            expiry_date = expiry_at_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+            # Parse last_run
+            last_run_str = activation_dict.get('last_run')
+            last_run_dt = datetime.strptime(last_run_str, "%Y-%m-%d")
+            now = datetime.now()
+
+            # License valid & clock OK
+            if now <= expiry_at_dt and now >= last_run_dt:
+                # Update last_run
+                cur.execute(
+                    "UPDATE activation SET last_run=? WHERE hardware_id=?",
+                    (now.strftime("%Y-%m-%d"), hardware_id)
+                )
+                con_db.commit()
+                is_active = True
+
+        except Exception as e:
+            print("Activation check failed:", e)
+            is_active = False
+
+    con_db.close()
+    return is_active, expiry_date
 
 @app.route('/api/zkteco/connect_device', methods=['POST'])
 def connect_device():
@@ -556,6 +609,12 @@ def insert_past_logs():
     Each device is handled independently.
     """
     try:
+
+        is_active, expiry_date = check_activation()
+
+        if not is_active:
+          return jsonify({'status': 'Not active'}), 403
+
         con_db = sqlite3.connect(f"{db_dir}/tanzim-academy-attendance/local_db_offline.db")
         con_db.row_factory = sqlite3.Row
         cur = con_db.cursor()
@@ -741,7 +800,9 @@ def insert_past_logs():
 
                     if matched_rule.get('auto_sms') == True:
                         sms_infos.append({
-                            "name": f"{user.name} - True",
+                            "id_no": id_no,
+                            "name": user_data["name"],
+                            "class_name": user_data["class_name"],
                             "message": matched_rule.get('message', '')
                         })
 
@@ -755,7 +816,6 @@ def insert_past_logs():
                 })
 
             except Exception as e:
-                print(e)
                 logging.error(f"[{ip_address}] Device processing failed: {e}")
                 results.append({
                     'ip': ip_address,
@@ -1583,7 +1643,6 @@ def get_devices():
 
 @app.route('/api/zkteco/delete_device/<id>', methods=['DELETE'])
 def delete_device(id):
-    print(id)
     try:
         con_db = sqlite3.connect(f"{db_dir}/tanzim-academy-attendance/local_db_offline.db")
         con_db.row_factory = sqlite3.Row  # Access rows as dict-like objects
@@ -1708,13 +1767,18 @@ def get_academy():
         con_db.row_factory = sqlite3.Row
         cur = con_db.cursor()
 
+        # Fetch academy info
         cur.execute("SELECT * FROM academy")
         academy = cur.fetchone()  # single record
+        academy_dict = dict(academy) if academy else None
 
-        if academy:
-            academy_dict = dict(academy)
-        else:
-            academy_dict = None
+        # Default values
+        is_active, expiry_date = check_activation()
+
+        # Add expiry_date and is_active to academy_dict
+        if academy_dict:
+            academy_dict['expiry_date'] = expiry_date
+            academy_dict['is_active'] = is_active
 
         con_db.close()
         return jsonify({"academy": academy_dict}), 200
@@ -1723,6 +1787,153 @@ def get_academy():
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+# for decrypt
+def evp_bytes_to_key(password, salt, key_len, iv_len):
+    """
+    Reproduce CryptoJS EVP_BytesToKey derivation
+    """
+    dt = b''
+    prev = b''
+    while len(dt) < (key_len + iv_len):
+        prev = hashlib.md5(prev + password + salt).digest()
+        dt += prev
+    return dt[:key_len], dt[key_len:key_len+iv_len]
+
+
+def decrypt_cryptojs(ciphertext, password):
+    """
+    Decrypt AES encrypted by CryptoJS (Password-based)
+    """
+    # Base64 decode
+    ct = base64.b64decode(ciphertext)
+
+    # Expect "Salted__" + 8-byte salt + actual ciphertext
+    assert ct[:8] == b"Salted__"
+    salt = ct[8:16]
+    data = ct[16:]
+
+    # Derive key and IV
+    key, iv = evp_bytes_to_key(password.encode('utf-8'), salt, 32, 16)
+
+    # Decrypt
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    decrypted = unpad(cipher.decrypt(data), AES.block_size)
+
+    return decrypted.decode('utf-8')
+
+@app.route('/api/zkteco/activation', methods=['POST'])
+def activation():
+    try:
+        data = request.get_json(force=True)
+        code = data.get('code')
+        con_db = sqlite3.connect(f"{db_dir}/tanzim-academy-attendance/local_db_offline.db")
+        con_db.row_factory = sqlite3.Row
+        cur = con_db.cursor()
+
+        password = "@mishok"
+        data_decrypt = decrypt_cryptojs(code, password)
+
+        split_data = data_decrypt.split('misho')
+        # Parse to datetime
+        expiry_at_dt = datetime.strptime(split_data[2], "%a, %d %b %Y %H:%M:%S %Z")
+        # Convert to ISO format for DB
+        expiry_at_db = expiry_at_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+        # delete old activation
+        cur.execute("SELECT * FROM activation WHERE expiry_date=?", (expiry_at_db,))
+        isApplied = cur.fetchone()
+        print(isApplied)
+        if isApplied:
+            return jsonify({"status": 'applied'}), 200
+
+        # insert new code
+        cur.execute("""
+            INSERT INTO activation (
+                hardware_id,
+                license_key,
+                activated_at,
+                last_run,
+                expiry_date
+            ) VALUES (?, ?, ?, ?, ?)
+        """, (
+            split_data[0],
+            code,
+            split_data[3], # activated_at
+            split_data[3], # last run = activated_at
+            expiry_at_db  # expiry_date
+        ))
+        con_db.commit()
+        con_db.close()
+        return jsonify({"success": True}), 200
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/zkteco/add_sms_service', methods=['POST'])
+def add_sms_service():
+    try:
+        data = request.get_json(force=True)
+        api_key = data.get('api_key')
+        sender_id = data.get('sender_id')
+        password = data.get('password')
+
+        if password != '@kafia':
+            return
+
+        con_db = sqlite3.connect(f"{db_dir}/tanzim-academy-attendance/local_db_offline.db")
+        con_db.row_factory = sqlite3.Row  # This allows us to access rows as dict-like objects
+        cur = con_db.cursor()
+
+        cur.execute("""INSERT INTO integrations (service_name, config, sender_id) VALUES (?, ?, ?)""", (
+            'message',
+            api_key,
+            sender_id
+        ))
+        con_db.commit()
+        con_db.close()
+        return jsonify({"message": "Department added successfully!"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/zkteco/get_sms_service', methods=['GET'])
+def get_sms_service():
+    try:
+        con_db = sqlite3.connect(f"{db_dir}/tanzim-academy-attendance/local_db_offline.db")
+        con_db.row_factory = sqlite3.Row  # Access rows as dict-like objects
+        cur = con_db.cursor()
+
+        cur.execute("SELECT * FROM integrations WHERE service_name=?", ('message',))
+        smsService = cur.fetchone()
+        # Convert sqlite3.Row objects to dicts
+        sms_dict = dict(smsService) if smsService else None
+
+        con_db.close()
+        return jsonify({"sms_service": sms_dict}), 200
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/zkteco/delete_message_integration', methods=['DELETE'])
+def deleteMessageIntegration():
+    try:
+        con_db = sqlite3.connect(f"{db_dir}/tanzim-academy-attendance/local_db_offline.db")
+        con_db.row_factory = sqlite3.Row
+        cur = con_db.cursor()
+
+        cur.execute('DELETE FROM integrations WHERE service_name = ?', ('message',))
+        con_db.commit()  # Commit the changes
+
+        return jsonify({'message': 'Message integration deleted successfully'}), 200
+    except Exception as e:
+        logging.info(f"⚠️ Error {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        con_db.close()
 
 # pyinstaller --onefile --noconsole zk_server.py
 

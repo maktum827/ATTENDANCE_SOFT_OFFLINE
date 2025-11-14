@@ -141,7 +141,11 @@ export default function ATTENDANCEDEVICES() {
   };
 
   const columns = [
-    { field: 'id', headerName: t('serialNo'), headerClassName: 'CustomHeader' },
+    {
+      field: 'serialNo',
+      headerName: t('serialNo'),
+      headerClassName: 'CustomHeader',
+    },
     {
       field: 'name',
       headerName: t('deviceName'),
@@ -263,7 +267,7 @@ export default function ATTENDANCEDEVICES() {
   const rows = devices.map((s, index) => {
     const device = devicesData?.results.find((d) => d.ip === s.ip);
     return {
-      id: index + 1,
+      serialNo: index + 1,
       ...s,
       connection: device?.status || 'failed',
     };

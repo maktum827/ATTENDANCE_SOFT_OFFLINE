@@ -833,18 +833,18 @@ export default function RulesManager() {
             color="inherit"
           />,
 
-          <GridActionsCellItem
-            icon={
-              <Send
-                sx={{
-                  color: 'success',
-                }}
-              />
-            }
-            label={`${t('send')} ${t('notActive')}`}
-            onClick={handleLateSMS(id)}
-            showInMenu
-          />,
+          // <GridActionsCellItem
+          //   icon={
+          //     <Send
+          //       sx={{
+          //         color: 'success',
+          //       }}
+          //     />
+          //   }
+          //   label={`${t('send')} ${t('notActive')}`}
+          //   onClick={handleLateSMS(id)}
+          //   showInMenu
+          // />,
           <GridActionsCellItem
             icon={
               <Delete

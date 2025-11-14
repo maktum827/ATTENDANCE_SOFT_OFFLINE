@@ -56,20 +56,6 @@ def create_db():
     )
     """)
 
-    # name TEXT,
-    #     father_name TEXT,
-    #     address TEXT,
-    #     class_designation TEXT,
-    #     group_name TEXT,
-    #     start_time TEXT,
-    #     end_time TEXT,
-    #     grace_period TEXT,
-    #     condition TEXT,
-    #     shift TEXT,
-    #     photo_url TEXT,
-    #     department TEXT,
-    #     residence TEXT,
-
     cur.execute("""
       CREATE TABLE IF NOT EXISTS departments (
           id INTEGER PRIMARY KEY AUTOINCREMENT,  -- unique ID for each department
@@ -181,7 +167,31 @@ def create_db():
     """)
 
 
-    # cur.execute("DROP TABLE attendance_logs")
+    cur.execute("""
+      CREATE TABLE IF NOT EXISTS activation (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,        -- unique ID for each activation record
+          hardware_id TEXT NOT NULL UNIQUE,            -- unique machine ID (from getHardwareId)
+          license_key TEXT NOT NULL,                   -- license key issued to this machine
+          activated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- activation date/time
+          last_run TIMESTAMP DEFAULT CURRENT_TIMESTAMP,      -- last app run timestamp (for tamper detection)
+          expiry_date TIMESTAMP,                       -- optional expiry date for license
+          status TEXT DEFAULT 'inactive',              -- status: 'inactive', 'active', 'expired'
+          extra_info TEXT                              -- optional: JSON or notes
+      );
+      """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS integrations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,         -- unique ID for each integration
+        service_name TEXT NOT NULL,                   -- name of the service (Slack, WhatsApp, etc.)
+        sender_id TEXT,
+        status TEXT NOT NULL DEFAULT 'disconnected',  -- 'connected' or 'disconnected'
+        config TEXT,                                  -- optional JSON string or notes
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+
+    # cur.execute("DROP TABLE integrations")
     # rows = cur.fetchall()
     # for i in rows:
     #     print(i)

@@ -5,11 +5,11 @@ const { language } = basics;
 export const getFontFamily = () => {
   switch (language) {
     case 'bn':
-      return 'SolaimanLipi_font, sans-serif';
+      return 'SolaimanLipi, sans-serif';
     case 'en':
-      return 'Inter_font, sans-serif';
+      return 'Inter, sans-serif';
     default:
-      return 'SolaimanLipi_font, sans-serif';
+      return 'SolaimanLipi, sans-serif';
   }
 };
 

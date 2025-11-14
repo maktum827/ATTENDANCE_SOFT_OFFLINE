@@ -40,16 +40,13 @@ import useZKTecoStream from './utils/useZKTecoStream';
 
 export default function Dashboard() {
   // useZKTecoStream();
-
+  const { logo, is_active: isActive } = useAuth();
   const { t } = useTranslation();
-  const { logo } = useAuth();
   const theme = useTheme();
-
   const [shift, setShift] = useState('');
   const { data: userData } = useGetUsersQuery();
   const users = useMemo(() => userData?.users || [], [userData]);
   const latestPunch = useSelector((state) => state.punch.latestPunch);
-
   // const [sendShiftSms, { data: shiftData, isSuccess }] =
   //   useSendShiftSmsMutation();
   // const absentsData = useMemo(() => shiftData?.sms_logs || [], [shiftData]);
@@ -363,7 +360,7 @@ export default function Dashboard() {
                 backgroundColor: theme.palette.background.paper,
               }}
             >
-              {users.length !== 0 ? (
+              {users.length !== 0 && isActive ? (
                 <Box>
                   <Typography
                     variant="subtitle1"

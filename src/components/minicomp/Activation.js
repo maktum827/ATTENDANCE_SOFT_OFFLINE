@@ -1,6 +1,5 @@
 // React and related imports
-import React, { useEffect, useMemo, useState } from 'react';
-import PropTypes from 'prop-types';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSnackbar } from 'notistack';
 
@@ -17,22 +16,15 @@ import Close from '@mui/icons-material/Close';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 
 // Custom imports
-import { useGetUserDataMutation } from '../../actions/onlineApi';
+import { useSoftwareActivationMutation } from '../../actions/zkTecoApi';
 import { CustomCrossButton } from '../styles/style';
-import { useConnectUserMutation } from '../../actions/othersApi';
 
-// export function ActivationWindow({ openWindow, handleClose }) {
 export default function ActivationWindow({ openWindow, handleClose }) {
   const { t } = useTranslation();
   const { enqueueSnackbar } = useSnackbar();
   const [activationKey, setActivationKey] = useState('');
 
-  const [getUserData, { data: userData, isSuccess: isUserDataSuccess }] =
-    useGetUserDataMutation();
-  const [connectUser, { isSuccess: isConnectSuccess }] =
-    useConnectUserMutation();
-
-  const userInfo = useMemo(() => userData?.data || [], [userData]);
+  const [applyActivation, { isLoading }] = useSoftwareActivationMutation();
 
   // ✅ Handle activation key input
   const handleCodeChange = (event) => {
@@ -43,39 +35,20 @@ export default function ActivationWindow({ openWindow, handleClose }) {
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
-      await getUserData({ activationKey }).unwrap();
-      enqueueSnackbar(t('fetchingUserData'), { variant: 'info' });
+      const res = await applyActivation({ code: activationKey }).unwrap();
+      if (res.success) {
+        window.location.reload();
+      } else if (res.status === 'applied') {
+        enqueueSnackbar(t('codeExpired'), { variant: 'error' });
+      }
     } catch (error) {
-      enqueueSnackbar(t('failedToFetchUserData'), { variant: 'error' });
+      enqueueSnackbar(error, { variant: 'error' });
     }
   };
 
-  // ✅ Once user data fetched successfully, connect user
-  useEffect(() => {
-    if (isUserDataSuccess && userInfo) {
-      connectUser(userInfo);
-      enqueueSnackbar(t('successMessage'), { variant: 'success' });
-      handleClose();
-    }
-  }, [
-    isUserDataSuccess,
-    userInfo,
-    connectUser,
-    enqueueSnackbar,
-    handleClose,
-    t,
-  ]);
-
-  // ✅ Once connection succeeds, reload
-  useEffect(() => {
-    if (isConnectSuccess) {
-      window.location.reload();
-    }
-  }, [isConnectSuccess]);
-
   // ✅ Open WhatsApp
   const handleClickWhatsapp = () => {
-    window.open('https://web.whatsapp.com', '_blank');
+    window.open('https://wa.me/01746841988', '_blank');
   };
 
   return (
@@ -127,7 +100,7 @@ export default function ActivationWindow({ openWindow, handleClose }) {
             <Grid item xs={12} sm={9}>
               <Button
                 variant="contained"
-                color="inherit"
+                color="primary"
                 endIcon={<WhatsAppIcon />}
                 onClick={handleClickWhatsapp}
                 disableElevation
@@ -143,6 +116,7 @@ export default function ActivationWindow({ openWindow, handleClose }) {
                 type="submit"
                 variant="contained"
                 color="success"
+                loading={isLoading}
                 fullWidth
                 size="small"
                 disableElevation

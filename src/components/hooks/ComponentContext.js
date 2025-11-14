@@ -10,6 +10,8 @@ import RulesManager from '../RulesMenagement';
 import SMSLOGS from '../SmsLogs';
 import SETUPDATA from '../SetupData';
 import USERS from '../Users';
+import BALANCECHECK from '../Balance';
+import Integrations from '../Integrations';
 
 const ComponentContext = createContext();
 
@@ -32,6 +34,12 @@ function ComponentProvider({ children }) {
         break;
       case 'notActive':
         setCurrentComponent(<SMSLOGS />);
+        break;
+      case 'integrations':
+        setCurrentComponent(<Integrations />);
+        break;
+      case 'balance':
+        setCurrentComponent(<BALANCECHECK />);
         break;
       case 'devices':
         setCurrentComponent(<ATTENDANCEDEVICES />);

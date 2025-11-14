@@ -52,14 +52,16 @@ function MAKINGSUMMERYSHEET({ openWindow, handleClose, data, isStudent }) {
   const filterByShiftAndEntry = (filteredData) => {
     const map = new Map();
     filteredData.forEach((row) => {
-      if (row.punchStatus !== 'entry' || row.shift !== shift) return;
+      if (row.condition !== 'exit' || row.shift_name !== shift) return; // change with entry later
 
-      const key = `${row.idNo}-${dayjs(row.date).format('YYYY-MM-DD')}`;
-      const currentInOut = dayjs(row.inOut, ['h:mm A', 'HH:mm:ss']);
+      const key = `${row.student_id}-${dayjs(row.timestamp).format('YYYY-MM-DD')}`;
+      const currentInOut = dayjs(row.timestamp, ['h:mm A', 'HH:mm:ss']);
 
       if (
         !map.has(key) ||
-        currentInOut.isBefore(dayjs(map.get(key).inOut, ['h:mm A', 'HH:mm:ss']))
+        currentInOut.isBefore(
+          dayjs(map.get(key).timestamp, ['h:mm A', 'HH:mm:ss']),
+        )
       ) {
         map.set(key, row);
       }
@@ -69,7 +71,7 @@ function MAKINGSUMMERYSHEET({ openWindow, handleClose, data, isStudent }) {
 
   const onSubmit = async ({ dateFrom, dateTo }) => {
     const filtered = data.filter((item) => {
-      const itemDate = new Date(item.date);
+      const itemDate = new Date(item.timestamp);
       return (
         (!dateFrom || itemDate >= new Date(dateFrom)) &&
         (!dateTo || itemDate <= new Date(dateTo))
@@ -80,21 +82,21 @@ function MAKINGSUMMERYSHEET({ openWindow, handleClose, data, isStudent }) {
     const uniqueDates = Array.from(
       new Set(
         filteredShiftEntries.map((item) =>
-          dayjs(item.date).format('YYYY-MM-DD'),
+          dayjs(item.timestamp).format('YYYY-MM-DD'),
         ),
       ),
     );
 
     const summary = {};
     filteredShiftEntries.forEach((row) => {
-      const { idNo } = row;
-      const formattedDate = dayjs(row.date).format('YYYY-MM-DD');
+      const { user_id: idNo } = row;
+      const formattedDate = dayjs(row.timestamp).format('YYYY-MM-DD');
 
       if (!summary[idNo]) {
         summary[idNo] = {
           id: idNo,
           name: row.name,
-          className: row.classOrDesignation,
+          className: row.class_name || row.designgation,
           presentDays: 0,
           presentOnTimeDays: 0,
           latePresentDays: 0,
@@ -103,15 +105,22 @@ function MAKINGSUMMERYSHEET({ openWindow, handleClose, data, isStudent }) {
         };
       }
 
+      // calculate isLate
+      const endTime = dayjs(row.end_time, 'HH:mm:ss');
+      const extendedTime = endTime.add(row.grace_period, 'minute');
+      const entryTime = dayjs(row.timestamp);
+      const lateByMinutes = entryTime.diff(extendedTime, 'minute');
+      const isLate = lateByMinutes > 0;
+
       const user = summary[idNo];
       if (!user.seenDates.has(formattedDate)) {
         user.seenDates.add(formattedDate);
         user.presentDays += 1;
-        if (row.isLate === 'true') {
+        if (isLate === 'true') {
           user.latePresentDays += 1;
           user.totalLateDuration += calculateLateDuration(
-            row.gracePeriod,
-            row.inOut,
+            row.grace_period,
+            row.timestamp,
           );
         } else {
           user.presentOnTimeDays += 1;
@@ -214,20 +223,7 @@ function MAKINGSUMMERYSHEET({ openWindow, handleClose, data, isStudent }) {
 MAKINGSUMMERYSHEET.propTypes = {
   openWindow: PropTypes.bool.isRequired,
   handleClose: PropTypes.func.isRequired,
-  data: PropTypes.arrayOf(
-    PropTypes.shape({
-      idNo: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
-        .isRequired,
-      name: PropTypes.string.isRequired,
-      date: PropTypes.string.isRequired,
-      shift: PropTypes.string,
-      punchStatus: PropTypes.string,
-      inOut: PropTypes.string,
-      isLate: PropTypes.string,
-      gracePeriod: PropTypes.string,
-      classOrDesignation: PropTypes.string,
-    }),
-  ).isRequired,
+  data: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
   isStudent: PropTypes.bool.isRequired,
 };
 

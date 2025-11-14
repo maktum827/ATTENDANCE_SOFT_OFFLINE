@@ -138,6 +138,7 @@
     "redux-devtools-extension": "^2.13.9",
     "redux-thunk": "^3.1.0",
     "stylis-plugin-rtl": "^2.1.1",
+    "systeminformation": "^5.27.11",
     "url": "^0.11.4"
   },
   "devDependencies": {

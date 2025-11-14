@@ -14,19 +14,20 @@ import {
   Chip,
   Popover,
   useMediaQuery,
+  Alert,
 } from '@mui/material';
 import MuiAppBar from '@mui/material/AppBar';
 
 // MUI Icons
 import MenuIcon from '@mui/icons-material/Menu';
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
-import NotificationsIcon from '@mui/icons-material/Notifications';
+// import NotificationsIcon from '@mui/icons-material/Notifications';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import PropTypes from 'prop-types';
 
 // Custom Components and Styles
 import SideBarMenu from './layout/Sidemenu';
-import { StyledBadge } from './styles/style';
+// import { StyledBadge } from './styles/style';
 
 // Hooks
 import { useComponent } from './hooks/ComponentContext';
@@ -34,9 +35,10 @@ import useAuth from './hooks/UseAuth';
 
 // Actions and Utilities
 import MetaData from './utils/metaData';
-// Third-Party Libraries
-import { BASE_URL_EXPRESS } from '../constants/othersConstants';
-import { useGetAcademyQuery } from '../actions/zkTecoApi';
+import { Facebook, Language, WhatsApp } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
+import { convertToBengaliDigits } from './utils/converter';
+import SocialMediaPanel from './SocialMedia';
 
 const drawerWidth = 220;
 const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(
@@ -100,7 +102,15 @@ const AppBar = styled(MuiAppBar, {
 }));
 
 export default function MAIN({ handleToggleMode }) {
-  const { name, logo_path: logoPath } = useAuth();
+  const {
+    name,
+    logo_path: logoPath,
+    is_active: isActive,
+    isLoading,
+    website,
+    facebook,
+  } = useAuth();
+  const { t } = useTranslation();
   // for handling components
   const { currentComponent } = useComponent();
   const { changeComponent } = useComponent();
@@ -127,9 +137,9 @@ export default function MAIN({ handleToggleMode }) {
 
   const [anchorEl5, setAnchorEl5] = React.useState(null);
 
-  const handleClick5 = (event) => {
-    setAnchorEl5(event.currentTarget);
-  };
+  // const handleClick5 = (event) => {
+  //   setAnchorEl5(event.currentTarget);
+  // };
 
   const handleClose5 = () => {
     setAnchorEl5(null);
@@ -138,10 +148,44 @@ export default function MAIN({ handleToggleMode }) {
   const open5 = Boolean(anchorEl5);
   const id = open5 ? 'simple-popover' : undefined;
 
+  // ✅ Open WhatsApp
+  const handleClickWhatsapp = () => {
+    window.open('https://wa.me/01746841988', '_blank');
+  };
+
+  const handleClickWebsite = () => {
+    window.open(website, '_blank');
+  };
+
+  const handleClickFacebook = () => {
+    window.open(facebook, '_blank');
+  };
+
   return (
     <>
       <MetaData title="DASHBOARD" />
       <AppBar position="sticky" open={open} color="inherit" elevation={0}>
+        {!isActive && !isLoading ? (
+          <Alert
+            severity="error"
+            sx={{
+              justifyContent: 'center',
+              alignItems: 'center',
+              fontSize: '1.3rem',
+            }}
+          >
+            {t('expiryStatus')}
+            <IconButton
+              onClick={handleClickWhatsapp}
+              color="inherit"
+              size="small"
+            >
+              <WhatsApp color="action" />
+            </IconButton>
+            {convertToBengaliDigits('01746841988')}
+          </Alert>
+        ) : null}
+
         <Toolbar variant="dense">
           <Grid
             container
@@ -172,6 +216,9 @@ export default function MAIN({ handleToggleMode }) {
               <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
                 <Typography color="primary">TANZIM</Typography>
                 <Typography sx={{ fontSize: '8px' }} marginLeft="0.5px">
+                  OFFLINE
+                </Typography>
+                <Typography sx={{ fontSize: '8px' }} marginLeft="3px">
                   ATTENDANCE
                 </Typography>
               </Box>
@@ -191,7 +238,7 @@ export default function MAIN({ handleToggleMode }) {
                 sx={{
                   fontSize: '1.1rem',
                 }}
-                label={name || 'Academy name will be here'}
+                label={name || ''}
               />
             </Grid>
             <Grid
@@ -238,6 +285,22 @@ export default function MAIN({ handleToggleMode }) {
                       </Typography>
                     </Popover>
                   </Grid>
+                  {/* <Grid item>
+                    <IconButton
+                      onClick={handleClickWebsite}
+                      aria-label="show new mails"
+                    >
+                      <Language color="action" />
+                    </IconButton>
+                  </Grid>
+                  <Grid item>
+                    <IconButton
+                      onClick={handleClickFacebook}
+                      aria-label="show new mails"
+                    >
+                      <Facebook color="action" />
+                    </IconButton>
+                  </Grid> */}
                   <Grid item>
                     <IconButton
                       onClick={handleToggleMode}
@@ -310,6 +373,7 @@ export default function MAIN({ handleToggleMode }) {
             }}
           >
             <SideBarMenu handleClickMenu={handleListItemClick} />
+            <SocialMediaPanel />
           </div>
         </Drawer>
         <Main open={open}>{currentComponent}</Main>

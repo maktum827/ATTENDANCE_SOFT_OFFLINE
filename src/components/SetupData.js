@@ -8,14 +8,9 @@ import {
   CardContent,
   TextField,
   Button,
-  List,
-  ListItem,
-  ListItemText,
-  IconButton,
   Divider,
   Typography,
   Stack,
-  MenuItem,
   Chip,
   Tooltip,
 } from '@mui/material';
@@ -56,23 +51,34 @@ function SETUPDATA() {
 
   const [addDepartment] = useAddDepartmentMutation();
   const [deleteDepartment] = useDeleteDepartmentMutation();
-  const { data, isLoading } = useGetDepartmentsQuery();
+  const { data, isLoading, refetch: departRefetch } = useGetDepartmentsQuery();
   const departments = data?.departments || [];
 
   const [addDesignation] = useAddDesignationMutation();
   const [deleteDesignation] = useDeleteDesignationMutation();
-  const { data: designationData, isLoading: designationLoading } =
-    useGetDesignationsQuery();
+  const {
+    data: designationData,
+    isLoading: designationLoading,
+    refetch: desigRefetch,
+  } = useGetDesignationsQuery();
   const designations = designationData?.designations || [];
 
   const [addClass] = useAddClassMutation();
   const [deleteClass] = useDeleteClassMutation();
   const [addGroup] = useAddGroupMutation();
   const [deleteGroup] = useDeleteGroupMutation();
-  const { data: classData, isLoading: classLoading } = useGetClassesQuery();
+  const {
+    data: classData,
+    isLoading: classLoading,
+    refetch: classRefetch,
+  } = useGetClassesQuery();
   const classes = classData?.classes || [];
 
-  const { data: groupData, isLoading: groupLoading } = useGetGroupsQuery();
+  const {
+    data: groupData,
+    isLoading: groupLoading,
+    refetch: groupRefetch,
+  } = useGetGroupsQuery();
   const groups = groupData?.groups || [];
 
   // --- Handlers ---
@@ -82,6 +88,7 @@ function SETUPDATA() {
       setNewClass('');
       setNewCode('');
       enqueueSnackbar(t('successMessage'), { variant: 'success' });
+      classRefetch();
     }
   };
 
@@ -90,12 +97,14 @@ function SETUPDATA() {
       await addDepartment({ department: newDepartment }).unwrap();
       setNewDepartment('');
       enqueueSnackbar(t('successMessage'), { variant: 'success' });
+      departRefetch();
     }
   };
 
   const handleDeleteDepartment = async (index) => {
     await deleteDepartment(index).unwrap();
     enqueueSnackbar(t('successMessage'), { variant: 'success' });
+    departRefetch();
   };
 
   const handleAddDesignation = async () => {
@@ -107,17 +116,20 @@ function SETUPDATA() {
       setNewDesignation('');
       setNewDesignationCode('');
       enqueueSnackbar(t('successMessage'), { variant: 'success' });
+      desigRefetch();
     }
   };
 
   const handleDeleteDesignation = async (index) => {
     await deleteDesignation(index).unwrap();
     enqueueSnackbar(t('successMessage'), { variant: 'success' });
+    desigRefetch();
   };
 
   const handleDeleteClass = async (index) => {
     await deleteClass(index).unwrap();
     enqueueSnackbar(t('successMessage'), { variant: 'success' });
+    classRefetch();
   };
 
   const handleAddGroup = async () => {
@@ -125,12 +137,14 @@ function SETUPDATA() {
       await addGroup({ group: newGroup }).unwrap();
       setNewGroup('');
       enqueueSnackbar(t('successMessage'), { variant: 'success' });
+      groupRefetch();
     }
   };
 
   const handleDeleteGroup = async (id) => {
     await deleteGroup(id).unwrap();
     enqueueSnackbar(t('successMessage'), { variant: 'success' });
+    groupRefetch();
   };
 
   if (

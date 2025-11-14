@@ -18,13 +18,13 @@ export default function SummaryAttendanceTable(data) {
     t('serialNo'),
     t('idNo'),
     t('name'),
-    'জামাত বা পদবি',
-    'মোট কার্যদিবস',
-    'উপস্থিতি',
-    'সময়মতো উপস্থিতি',
-    'দেরিতে উপস্থিতি',
-    'মোট অনুপস্থিতি',
-    'মোট দেরি',
+    t('classOrDesignation'),
+    t('totalWorkingDays'),
+    t('attendance1'),
+    t('attendanceInTime'),
+    t('lateAttendance'),
+    t('totalAbsent'),
+    t('totalLate'),
   ];
 
   const userData = data?.data || [];
@@ -35,10 +35,15 @@ export default function SummaryAttendanceTable(data) {
       <COMMONWATERMARK />
 
       {/* Header */}
-      <PADHEADING text={t('attendanceSummarySheet')} />
+      <PADHEADING
+        text={
+          convertToBengaliDigits(userData?.heading) ||
+          t('attendanceSummarySheet')
+        }
+      />
 
       {/* Table */}
-      <TableContainer>
+      <TableContainer sx={{ mt: 1 }}>
         <Table
           sx={{ borderCollapse: 'collapse', width: '100%' }}
           aria-label="summary attendance"

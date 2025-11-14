@@ -16,6 +16,8 @@ import {
   PeopleAltOutlined,
   InfoOutlined,
   LibraryBooks,
+  CurrencyExchange,
+  IntegrationInstructions,
 } from '@mui/icons-material';
 // // MUI Icons
 import AssuredWorkloadIcon from '@mui/icons-material/AssuredWorkload';
@@ -123,6 +125,24 @@ export default function SideBarMenu({ handleClickMenu }) {
         <ListItemText primary={t('rules')} />
       </ListItemButton>
       <ListItemButton
+        selected={selected === 'balance'}
+        onClick={() => handleClick('balance')}
+      >
+        <ListItemIcon>
+          <CurrencyExchange fontSize="small" />
+        </ListItemIcon>
+        <ListItemText primary={t('balance')} />
+      </ListItemButton>
+      <ListItemButton
+        selected={selected === 'integrations'}
+        onClick={() => handleClick('integrations')}
+      >
+        <ListItemIcon>
+          <IntegrationInstructions fontSize="small" />
+        </ListItemIcon>
+        <ListItemText primary={t('integrations')} />
+      </ListItemButton>
+      {/* <ListItemButton
         selected={selected === 'notActive'}
         onClick={() => handleClick('notActive')}
       >
@@ -130,7 +150,7 @@ export default function SideBarMenu({ handleClickMenu }) {
           <SmsFailedOutlinedIcon fontSize="small" />
         </ListItemIcon>
         <ListItemText primary={t('notActive')} />
-      </ListItemButton>
+      </ListItemButton> */}
       <ListItemButton
         selected={selected === 'devices'}
         onClick={() => handleClick('devices')}

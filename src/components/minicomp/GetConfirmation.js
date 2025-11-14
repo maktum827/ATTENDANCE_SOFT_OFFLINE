@@ -28,6 +28,7 @@ export function GETCONFIRMATION({ handleClose, confirmationText, handleOk }) {
           disableElevation
           onClick={handleClose}
           variant="outlined"
+          sx={{ ml: 1 }}
           color="inherit"
         >
           {t('no')}

@@ -2,7 +2,12 @@
 /* eslint no-unused-vars: off */
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 
-export type Channels = 'ipc-example';
+export type Channels =
+  | 'ipc-example'
+  | 'get-hardware-id'
+  // | 'read-license'
+  // | 'write-license'
+  | 'restart-app';
 
 const electronHandler = {
   ipcRenderer: {
@@ -22,7 +27,15 @@ const electronHandler = {
       ipcRenderer.once(channel, (_event, ...args) => func(...args));
     },
   },
-  // Add the restartApp function
+
+  // ⭐ NEW: Activation API
+  activation: {
+    getHardwareId: () => ipcRenderer.invoke('get-hardware-id'),
+    // readLicense: () => ipcRenderer.invoke('read-license'),
+    // writeLicense: (licenseJson: any) =>
+    //   ipcRenderer.invoke('write-license', licenseJson),
+  },
+
   restartApp: () => {
     ipcRenderer.send('restart-app');
   },

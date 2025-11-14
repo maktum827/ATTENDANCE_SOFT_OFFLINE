@@ -1,25 +1,3 @@
-@font-face {
-  font-family: 'SolaimanLipi_font';
-  src: url('https://res.cloudinary.com/plsshopit/raw/upload/v1741590177/public/SolaimanLipi_hwuked.ttf')
-    format('truetype');
-  font-weight: normal;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'Inter_font';
-  src: url('https://res.cloudinary.com/plsshopit/raw/upload/v1750848400/public/Inter_28pt-Regular_i3lpjw.ttf')
-    format('truetype');
-  font-weight: normal;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'Amiri_font';
-  src: url('https://res.cloudinary.com/plsshopit/raw/upload/v1750848928/public/AmiriQuran-Regular_kuiaiq.ttf')
-    format('truetype');
-  font-weight: normal;
-  font-style: normal;
-}
-
 /* Add top border */
 .add-top-border .MuiDataGrid-cell {
   border: none !important;

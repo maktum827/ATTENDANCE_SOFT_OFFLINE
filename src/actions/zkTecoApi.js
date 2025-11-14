@@ -14,6 +14,8 @@ export const zkTecoApi = createApi({
     'TimeRules',
     'Devices',
     'Academy',
+    'Integrations',
+    'ClassesGroups',
   ],
   endpoints: (builder) => ({
     addAcademy: builder.mutation({
@@ -184,12 +186,12 @@ export const zkTecoApi = createApi({
         method: 'POST',
         body: data,
       }),
-      invalidatesTags: ['Groups'],
+      invalidatesTags: ['ClassesGroups'],
     }),
 
     getGroups: builder.query({
       query: () => `/get_groups`,
-      providesTags: ['Groups'],
+      providesTags: ['ClassesGroups'],
     }),
 
     deleteGroup: builder.mutation({
@@ -197,7 +199,7 @@ export const zkTecoApi = createApi({
         url: `/delete_group/${id}`,
         method: 'DELETE',
       }),
-      invalidatesTags: ['Groups'],
+      invalidatesTags: ['ClassesGroups'],
     }),
 
     addDesignation: builder.mutation({
@@ -284,6 +286,35 @@ export const zkTecoApi = createApi({
       }),
       invalidatesTags: ['Devices'],
     }),
+    softwareActivation: builder.mutation({
+      query: (code) => ({
+        url: `/activation`,
+        method: 'POST',
+        body: code,
+      }),
+    }),
+
+    addSmsService: builder.mutation({
+      query: (data) => ({
+        url: `/add_sms_service`,
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['Integrations'],
+    }),
+
+    getSmsService: builder.query({
+      query: () => `/get_sms_service`,
+      providesTags: ['Integrations'],
+    }),
+
+    deleteMessageIntegration: builder.mutation({
+      query: () => ({
+        url: `/delete_message_integration`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Integrations'],
+    }),
   }),
 });
 
@@ -325,4 +356,8 @@ export const {
   useGetConnectedDevicesQuery,
   useAddAcademyMutation,
   useGetAcademyQuery,
+  useSoftwareActivationMutation,
+  useAddSmsServiceMutation,
+  useGetSmsServiceQuery,
+  useDeleteMessageIntegrationMutation,
 } = zkTecoApi;

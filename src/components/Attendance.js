@@ -222,7 +222,6 @@ function CustomToolbar() {
 // AttendanceList Component
 export default function AttendanceList() {
   const { t } = useTranslation();
-  const { code, logo } = useAuth();
   const { loading } = useInsertAttendance();
 
   const { data, isLoading: attendanceLoading } = useGetAttendanceQuery({
@@ -234,7 +233,7 @@ export default function AttendanceList() {
 
   const handleDelete = async (id) => {
     try {
-      await deleteAttendance({ id, code }).unwrap();
+      await deleteAttendance(id).unwrap();
       enqueueSnackbar(t('successMessage'), { variant: 'success' });
     } catch (error) {
       enqueueSnackbar(t('errorMessage'), { variant: 'error' });
