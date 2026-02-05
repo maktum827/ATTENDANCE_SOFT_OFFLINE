@@ -23,7 +23,7 @@ dotenv.config();
 
 // flask server
 let flaskProcess: ChildProcess | null = null;
-function startFlaskServer() {
+async function startFlaskServer() {
   const flaskPort = 4009;
 
   const checkServerRunning = (): Promise<boolean> => {
@@ -38,8 +38,8 @@ function startFlaskServer() {
 
   const launchServer = () => {
     const serverPath = app.isPackaged
-      ? path.join(process.resourcesPath, 'zk_server.exe')
-      : path.join(__dirname, '../../flask_server/zk_server.py');
+      ? path.join(process.resourcesPath, 'zk_server_offline.exe')
+      : path.join(__dirname, '../../flask_server/zk_server_offline.py');
 
     const isWindows = process.platform === 'win32';
 
@@ -60,14 +60,18 @@ function startFlaskServer() {
     console.log('✅ Flask server started.');
   };
 
-  checkServerRunning().then((isRunning) => {
+  try {
+    const isRunning = await checkServerRunning();
+
     if (isRunning) {
       console.log('⚙️ Flask server already running.');
     } else {
       console.log('🚀 Starting Flask server...');
       launchServer();
     }
-  });
+  } catch (error) {
+    console.error('❌ Failed to check Flask server status:', error);
+  }
 }
 
 async function getHardwareId() {
@@ -142,10 +146,10 @@ let mainWindow: BrowserWindow | null = null;
 
 const createWindow = async () => {
   getHardwareId();
-  // startFlaskServer();
-  // if (!flaskProcess || flaskProcess.killed) {
-  //   startFlaskServer();
-  // }
+  startFlaskServer();
+  if (!flaskProcess || flaskProcess.killed) {
+    startFlaskServer();
+  }
 
   if (isDebug) {
     await installExtensions();

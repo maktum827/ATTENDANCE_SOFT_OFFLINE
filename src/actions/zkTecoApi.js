@@ -65,10 +65,13 @@ export const zkTecoApi = createApi({
     }),
 
     addZkNewUser: builder.mutation({
-      query: (data) => ({
+      query: (payload) => ({
         url: `/add_zk_user`,
         method: 'POST',
-        body: data,
+        body: payload,
+        headers: {
+          'Content-Type': 'application/json',
+        },
       }),
     }),
 

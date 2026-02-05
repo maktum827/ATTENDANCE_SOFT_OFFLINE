@@ -1,4 +1,4 @@
-# import sys
+# import sys, io
 # sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 from flask import Flask, request, jsonify, Response, stream_with_context
 from zk import ZK, const
@@ -7,7 +7,7 @@ import threading, os, json, base64, hashlib
 from threading import Thread, Lock
 # Ensure UTF-8 encoding
 from flask_cors import CORS
-import os, sqlite3, re, math, time, logging, subprocess
+import os, sqlite3, re, math, time, subprocess, logging
 from database import create_db
 db_dir = os.getenv("APPDATA")
 from waitress import serve
@@ -24,12 +24,12 @@ create_db()
 
 timestamp = int(time.time())
 
-# log_file = os.path.join(os.getenv("APPDATA"), "zk_server.log")
-# logging.basicConfig(
-#     filename=log_file,
-#     level=logging.INFO,
-#     format="%(asctime)s - %(levelname)s - %(message)s"
-# )
+log_file = os.path.join(os.getenv("APPDATA"), "zk_server.log")
+logging.basicConfig(
+    filename=log_file,
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 # --- Upload folder setup ---
 UPLOAD_FOLDER_PHOTO = os.path.join(Path.home(), "AppData", "Roaming", "Tanzim", "uploads")
@@ -45,31 +45,23 @@ stop_flags = {}  # (ip, port) -> bool
 active_connections = {}  # {(ip, port): conn}
 lock = Lock()
 
-# RECONNECT_DELAY = 10  # seconds to wait before reconnecting
-
-# if os.name == "nt":
-#     old_popen = subprocess.Popen
-
-#     def hidden_popen(*args, **kwargs):
-#         kwargs.setdefault("creationflags", 0)
-#         kwargs["creationflags"] |= subprocess.CREATE_NO_WINDOW
-#         return old_popen(*args, **kwargs)
-
-#     subprocess.Popen = hidden_popen
+if os.name == "nt":
+    old_popen = subprocess.Popen
+    def hidden_popen(*args, **kwargs):
+        kwargs.setdefault("creationflags", 0)
+        kwargs["creationflags"] |= subprocess.CREATE_NO_WINDOW
+        return old_popen(*args, **kwargs)
+    subprocess.Popen = hidden_popen
 
 @app.route("/health", methods=["GET"])
 def health_check():
     return {"status": "ok"}, 200
 
-def check_activation():
+def check_activation(con_db, cur):
     """
     Returns a tuple: (is_active: bool, expiry_date: str, hardware_id: str)
     """
-    secret_key="@mishok"
-
-    con_db = sqlite3.connect(f"{db_dir}/tanzim-academy-attendance/local_db_offline.db")
-    con_db.row_factory = sqlite3.Row
-    cur = con_db.cursor()
+    secret_key = "@mishok"
 
     cur.execute("SELECT * FROM activation")
     activation = cur.fetchone()
@@ -83,21 +75,17 @@ def check_activation():
         try:
             data_decrypt = decrypt_cryptojs(activation_dict.get('license_key'), secret_key)
             split_data = data_decrypt.split('misho')
-            # Expected: [hardware_id, secretCode, expiry_date_str, activated_at_str]
+
             hardware_id = split_data[0]
 
-            # Parse expiry date
             expiry_at_dt = datetime.strptime(split_data[2], "%a, %d %b %Y %H:%M:%S %Z")
             expiry_date = expiry_at_dt.strftime("%Y-%m-%d %H:%M:%S")
 
-            # Parse last_run
-            last_run_str = activation_dict.get('last_run')
-            last_run_dt = datetime.strptime(last_run_str, "%Y-%m-%d")
+            last_run_dt = datetime.strptime(activation_dict['last_run'], "%Y-%m-%d")
             now = datetime.now()
 
-            # License valid & clock OK
+            # License valid
             if now <= expiry_at_dt and now >= last_run_dt:
-                # Update last_run
                 cur.execute(
                     "UPDATE activation SET last_run=? WHERE hardware_id=?",
                     (now.strftime("%Y-%m-%d"), hardware_id)
@@ -106,19 +94,19 @@ def check_activation():
                 is_active = True
 
         except Exception as e:
-            print("Activation check failed:", e)
-            is_active = False
+            logging.info("Activation check failed:", e)
 
-    con_db.close()
     return is_active, expiry_date
 
 @app.route('/api/zkteco/connect_device', methods=['POST'])
 def connect_device():
+
     """
     Connect to one or multiple ZKTeco devices.
     Request JSON: [{ip_address, port, device_name, ...}, ...]
     """
     devices = request.get_json(force=True)
+
     if not isinstance(devices, list):
         return jsonify({'error': 'Expected a list of devices'}), 400
 
@@ -170,11 +158,12 @@ def connect_device():
 def add_zk_user():
     try:
         data = request.get_json(force=True)
-        if not data or len(data) < 2:
-            return jsonify({'error': 'Invalid request format. Expected device and user data.'}), 400
 
-        newDevices = data['data'][0]
-        userData = data['data'][1]
+        if not data or len(data) < 1:
+            return jsonify({'err': 'Invalid request format. Expected device and user data.'}), 400
+
+        newDevices = data[0]
+        userData = data[1]
 
         if not userData:
             return jsonify({'error': 'User data is missing.'}), 400
@@ -183,9 +172,9 @@ def add_zk_user():
         # ============================================================
         with lock:
             for key, conn in list(active_connections.items()):
-                ip, port, c = key
+                ip, port = key
                 try:
-                    logging.info(f"🛑 Closing active connection to {ip}:{port} ({c}) before adding user.")
+                    logging.info(f"🛑 Closing active connection to {ip}:{port} before adding user.")
                     try:
                         conn.disconnect()
                     except Exception:
@@ -252,18 +241,13 @@ def add_zk_user():
                 continue
 
         return jsonify(connectedDevices), 200
-
-    except KeyError as e:
-        return jsonify({'error': f'Missing required field: {str(e)}'}), 400
-    except ValueError as e:
-        return jsonify({'error': f'Invalid data: {str(e)}'}), 400
     except Exception as e:
+        logging.info(e)
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
-
 
 def delete_user_from_device(device, userData):
     uid = userData.get('uid')
-    ip_address = device.get('ip_address')
+    ip_address = device.get('ip')
     port = device.get('port')
 
     zk = ZK(ip_address, port=int(port), timeout=5)
@@ -296,7 +280,7 @@ def get_next_uid(existing_uids):
 def delete_zk_user():
     data = request.json or {}
     try:
-        user_id = int(data.get('id', 0))
+        user_id = int(data.get('data_id', 0))
         ip = data.get('ip')
         port = data.get('port') or 4370
         uid = data.get('uid') or 0
@@ -330,6 +314,8 @@ def delete_zk_user():
             cur.execute("DELETE FROM users WHERE id=?", (user_id,))
             con_db.commit()
 
+        con_db.close()
+
         # --- Delete from device only if IP is provided ---
         if ip:
             zk = ZK(ip, port=port, timeout=5)
@@ -342,12 +328,12 @@ def delete_zk_user():
                     conn_device.enable_device()
                     conn_device.disconnect()
             except Exception as e:
-                print("Device deletion error:", e)
+                logging.info("Device deletion error:", e)
 
         return jsonify({"success": True, "message": "User deleted successfully"}), 200
 
     except Exception as e:
-        print("Error deleting user:", e)
+        logging.info("Error deleting user:", e)
         return jsonify({"error": str(e)}), 500
 
 # Route to fetch all users
@@ -389,7 +375,7 @@ def get_zk_users():
                             # 'fingerprint': has_fingerprint  # ✅ added field
                         })
             except Exception as e:
-                # print(e)
+                # logging.info(e)
                 pass
         return jsonify(users_list), 200
     else:
@@ -409,7 +395,7 @@ def get_logs():
                 failedDevices.append({'ip': ip_address, 'port': port, 'error': 'Missing IP or Port'})
                 continue  # Skip to the next device
 
-            zk = ZK(ip_address, port=int(port), timeout=10)
+            zk = ZK(ip_address, port=int(port), timeout=5)
 
             try:
                 conn_device = zk.connect()
@@ -433,7 +419,7 @@ def get_logs():
                         })
 
                 conn_device.enable_device()
-                # conn_device.clear_attendance()
+                conn_device.clear_attendance()
                 conn_device.disconnect()
             except Exception as e:
                 failedDevices.append({'ip': ip_address, 'port': port, 'error': str(e)})
@@ -538,6 +524,7 @@ def free_device_data():
         if conn:
             conn.disable_device()
             conn.free_data()
+            conn.clear_attendance()
             conn.enable_device()
             conn.disconnect()
             return jsonify('success'), 200
@@ -594,6 +581,7 @@ def deleteAttendance(id):
 
         cur.execute('DELETE FROM attendance_logs WHERE id = ?', (id,))
         con_db.commit()  # Commit the changes
+        con_db.close()
 
         return jsonify({'message': 'User deleted successfully'}), 200
     except Exception as e:
@@ -610,18 +598,20 @@ def insert_past_logs():
     """
     try:
 
-        is_active, expiry_date = check_activation()
-
-        if not is_active:
-          return jsonify({'status': 'Not active'}), 403
-
         con_db = sqlite3.connect(f"{db_dir}/tanzim-academy-attendance/local_db_offline.db")
         con_db.row_factory = sqlite3.Row
         cur = con_db.cursor()
         cur.execute("SELECT * FROM users")
         rows = cur.fetchall()
+
+        is_active, expiry_date = check_activation(con_db, cur)
+
+        if not is_active:
+          return jsonify({'status': 'Not active'}), 403
+
         # Convert sqlite3.Row objects to dicts
         allusers = [dict(row) for row in rows]
+
 
         cur.execute("SELECT * FROM time_rules")
         rule_rows = cur.fetchall()
@@ -637,13 +627,11 @@ def insert_past_logs():
 
         data = request.get_json()
 
-        # print(data)
         if not data or not isinstance(data, list):
             return jsonify({'error': 'Invalid device data format'}), 400
 
         results = []
         total_devices = len(data)
-
         for device in data:
             ip_address = device.get('ip')
             port = int(device.get('port', 4370))
@@ -659,7 +647,7 @@ def insert_past_logs():
                 continue
 
             try:
-                zk = ZK(ip_address, port=port, timeout=10)
+                zk = ZK(ip_address, port=port, timeout=5)
                 conn_device = zk.connect()
                 conn_device.disable_device()
                 logging.info(f"[{ip_address}] Connected to device")
@@ -678,19 +666,19 @@ def insert_past_logs():
                     conn_device.disconnect()
                     continue
 
+
                 sms_infos = []
                 for log in attendance_logs:
                     user = next((u for u in users if u.user_id == log.user_id), None)
                     if not user:
                         continue
 
-                    try:
-                        log_user = user.name.split(' - ')
-                        id_no = int(log_user[1])
-                        user_data = (next((s for s in allusers if s.get('user_id') == id_no), None))
-                    except Exception as e:
-                        logging.warning(f"[{ip_address}] User parse failed: {e}")
-                        continue
+                    log_user = user.name.split(' - ')
+                    id_no = int(log_user[1])
+                    user_data = next(
+                        (u for u in allusers if u["user_id"] == id_no),
+                        None
+                    )
 
                     if not user_data:
                         continue
@@ -709,7 +697,7 @@ def insert_past_logs():
                             else:
                                 return att_time >= start_time or att_time <= end_time_with_grace
                         except Exception as e:
-                            logging.warning(f"[{ip_address}] Rule time error: {e}")
+                            logging.info(f"[{ip_address}] Rule time error: {e}")
                             return False
 
 
@@ -800,8 +788,9 @@ def insert_past_logs():
 
                     if matched_rule.get('auto_sms') == True:
                         sms_infos.append({
-                            "id_no": id_no,
+                            "user_id": id_no,
                             "name": user_data["name"],
+                            "contact": user_data["contact"],
                             "class_name": user_data["class_name"],
                             "message": matched_rule.get('message', '')
                         })
@@ -816,7 +805,7 @@ def insert_past_logs():
                 })
 
             except Exception as e:
-                logging.error(f"[{ip_address}] Device processing failed: {e}")
+                logging.info(f"[{ip_address}] Device processing failed: {e}")
                 results.append({
                     'ip': ip_address,
                     'port': port,
@@ -832,7 +821,7 @@ def insert_past_logs():
         }), 200
 
     except Exception as e:
-        logging.error(f"insert_past_logs() error: {e}")
+        logging.info(f"insert_past_logs() error: {e}")
         return jsonify({'error': str(e)}), 500
 
 # Auto absend message sending
@@ -912,7 +901,7 @@ def schedule_sms(rule):
 
             rows = cur.fetchall()
             absentees = get_absent_users(rule, [dict(row) for row in rows])
-
+    con_db.close()
     threading.Timer(delay, task).start()
 
 @app.route('/api/zkteco/send_shift_messages', methods=['POST'])
@@ -973,11 +962,11 @@ def send_sms_shift_wise():
                 con_db.close()
                 return jsonify({'sms_logs': payload}), 200
             except Exception as e:
+                con_db.close()
                 logging.info(f"❌ SMS Request failed: {e}")
                 return jsonify({'error': 'Request failed'}), 500
         else:
             return jsonify({"message": "Rule is not active, no SMS needed"}), 200
-
     except Exception as e:
         logging.info(f"❌ Unexpected error: {e}")
         return jsonify({"error": str(e)}), 500
@@ -1030,10 +1019,10 @@ def device_capture_worker(ip, port):
                     device_status[key]["status"] = "connected"
                     device_status[key]["last_seen"] = time.time()
                 except Exception as e:
-                    logging.error(f"[{ip}] Failed to queue data: {e}")
+                    logging.info(f"[{ip}] Failed to queue data: {e}")
                     break
         except Exception as e:
-            logging.error(f"[{ip}] Worker error: {e}")
+            logging.info(f"[{ip}] Worker error: {e}")
 
 # ============================================================
 # START STREAM PER DEVICE
@@ -1054,7 +1043,7 @@ def start_device_stream(ip, port):
 # ============================================================
 # DEVICE CAPTURE CORE FUNCTION
 # ============================================================
-def live_capture_single_device(ip, port, timeout=10):
+def live_capture_single_device(ip, port, timeout=5):
     zk = ZK(ip, port=port, timeout=timeout)
     conn = None
     try:
@@ -1066,7 +1055,7 @@ def live_capture_single_device(ip, port, timeout=10):
         while True:
             attendance = next(conn.live_capture())
             if attendance is None:
-                logging.debug(f"[{ip}] No data, retrying...")
+                logging.info(f"[{ip}] No data, retrying...")
                 continue
 
             # map user ID to name
@@ -1082,7 +1071,7 @@ def live_capture_single_device(ip, port, timeout=10):
             }
 
     except Exception as e:
-        logging.error(f"[{ip}] Capture error: {e}")
+        logging.info(f"[{ip}] Capture error: {e}")
         raise e
     finally:
         try:
@@ -1114,7 +1103,7 @@ def live_stream():
 
         while True:
             try:
-                data = queue.get(timeout=30)
+                data = queue.get(timeout=5)
                 yield data
             except Empty:
                 # Keep connection alive
@@ -1248,7 +1237,7 @@ def delete_class(id):
         con_db.close()
         return jsonify({"success": True}), 200
     except Exception as e:
-        print(e)
+        logging.info(e)
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/zkteco/add_group', methods=['POST'])
@@ -1366,7 +1355,7 @@ def delete_designation(id):
 def add_user():
     try:
         # --- 1️⃣ Get form data ---
-        id = request.form.get('id')  # This is DB id (for update)
+        id = request.form.get('data_id')  # This is DB id (for update)
         user_type = request.form.get('user_type')
         user_id = request.form.get('user_id')
         name = request.form.get('name')
@@ -1457,7 +1446,7 @@ def add_user():
             return jsonify({"message": "User added successfully!"}), 200
 
     except Exception as e:
-        print("❌ Error:", e)
+        logging.info("❌ Error:", e)
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/zkteco/get_users', methods=['GET'])
@@ -1492,11 +1481,11 @@ def add_time_rules():
         users = data.get('users')              # list → convert to JSON before storing
         start_time = data.get('startTime')
         end_time = data.get('endTime')
-        grace_period = int(data.get('gracePeriod') or 0)
-        auto_sms = 1 if data.get('autoSms') else 0
+        grace_period = int(data.get('grace_period') or 0)
+        auto_sms = 1 if data.get('auto_sms') else 0
         auto_message = data.get('message')
-        absent_sms = 1 if data.get('notActive') else 0
-        absent_message = data.get('mmessageNotActive')
+        absent_sms = 1 if data.get('absent_message') else 0
+        absent_message = data.get('absent_message')
 
         # Connect to database
         con_db = sqlite3.connect(f"{db_dir}/tanzim-academy-attendance/local_db_offline.db")
@@ -1534,7 +1523,7 @@ def add_time_rules():
         return jsonify({"success": True, "message": "Time rule saved successfully."}), 200
 
     except Exception as e:
-        print("Error:", e)
+        logging.info("Error:", e)
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/zkteco/get_time_rules', methods=['GET'])
@@ -1589,8 +1578,6 @@ def add_device():
         ip = data.get('ip')
         port = data.get('port')
 
-        print(data)
-
         con_db = sqlite3.connect(f"{db_dir}/tanzim-academy-attendance/local_db_offline.db")
         con_db.row_factory = sqlite3.Row  # This allows us to access rows as dict-like objects
         cur = con_db.cursor()
@@ -1617,7 +1604,7 @@ def add_device():
         con_db.close()
         return jsonify({"message": "Device added successfully!"}), 200
     except Exception as e:
-        print(e)
+        logging.info(e)
         return jsonify({"error": str(e)}), 500
 
 
@@ -1757,7 +1744,7 @@ def add_academy():
             con_db.close()
             return jsonify({"message": "User added successfully!"}), 200
     except Exception as e:
-        print("❌ Error:", e)
+        logging.info("❌ Error:", e)
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/zkteco/get_academy', methods=['GET'])
@@ -1773,7 +1760,7 @@ def get_academy():
         academy_dict = dict(academy) if academy else None
 
         # Default values
-        is_active, expiry_date = check_activation()
+        is_active, expiry_date = check_activation(con_db, cur)
 
         # Add expiry_date and is_active to academy_dict
         if academy_dict:
@@ -1827,6 +1814,7 @@ def activation():
     try:
         data = request.get_json(force=True)
         code = data.get('code')
+
         con_db = sqlite3.connect(f"{db_dir}/tanzim-academy-attendance/local_db_offline.db")
         con_db.row_factory = sqlite3.Row
         cur = con_db.cursor()
@@ -1835,19 +1823,49 @@ def activation():
         data_decrypt = decrypt_cryptojs(code, password)
 
         split_data = data_decrypt.split('misho')
-        # Parse to datetime
+        hardware_id = split_data[0]
+
+        # Parse expiry
         expiry_at_dt = datetime.strptime(split_data[2], "%a, %d %b %Y %H:%M:%S %Z")
-        # Convert to ISO format for DB
         expiry_at_db = expiry_at_dt.strftime("%Y-%m-%d %H:%M:%S")
 
-        # delete old activation
+        activated_at = split_data[3]
+        last_run = activated_at
+
+        # Check if expiry already applied
         cur.execute("SELECT * FROM activation WHERE expiry_date=?", (expiry_at_db,))
         isApplied = cur.fetchone()
-        print(isApplied)
         if isApplied:
-            return jsonify({"status": 'applied'}), 200
+            con_db.close()
+            return jsonify({"status": "applied"}), 200
 
-        # insert new code
+        # Check if hardware_id already exists
+        cur.execute("SELECT * FROM activation WHERE hardware_id=?", (hardware_id,))
+        existing = cur.fetchone()
+
+        if existing:
+            # Update instead of inserting (fix conflict)
+            cur.execute("""
+                UPDATE activation
+                SET
+                    license_key=?,
+                    activated_at=?,
+                    last_run=?,
+                    expiry_date=?
+                WHERE hardware_id=?
+            """, (
+                code,
+                activated_at,
+                last_run,
+                expiry_at_db,
+                hardware_id
+            ))
+
+            con_db.commit()
+            con_db.close()
+            return jsonify({"success": True}), 200
+
+        # Insert new activation
         cur.execute("""
             INSERT INTO activation (
                 hardware_id,
@@ -1857,12 +1875,13 @@ def activation():
                 expiry_date
             ) VALUES (?, ?, ?, ?, ?)
         """, (
-            split_data[0],
+            hardware_id,
             code,
-            split_data[3], # activated_at
-            split_data[3], # last run = activated_at
-            expiry_at_db  # expiry_date
+            activated_at,
+            last_run,
+            expiry_at_db
         ))
+
         con_db.commit()
         con_db.close()
         return jsonify({"success": True}), 200
@@ -1935,23 +1954,17 @@ def deleteMessageIntegration():
     finally:
         con_db.close()
 
-# pyinstaller --onefile --noconsole zk_server.py
-
-# if __name__ == '__main__':
-#     app.run(host='0.0.0.0', port=4009, debug=False)
-
-# zk_server.py
-# if __name__ == "__main__":
-#     import sys
-#     is_frozen = getattr(sys, "frozen", False)  # True when running as .exe
-
-#     if is_frozen:
-#         from waitress import serve
-#         logging.getLogger('waitress').setLevel(logging.ERROR)  # suppress waitress logs
-#         serve(app, host="0.0.0.0", port=4010)
-#     else:
-#         app.run(host="0.0.0.0", port=4010, debug=False, use_reloader=False)
-
+# pyinstaller --onefile --noconsole zk_server_offline.py
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=4011, debug=True)
+    import sys
+    is_frozen = getattr(sys, "frozen", False)  # True when running as .exe
+
+    if is_frozen:
+        from waitress import serve
+        serve(app, host="0.0.0.0", port=4011)
+    else:
+        app.run(host="0.0.0.0", port=4011, debug=False, use_reloader=False)
+
+# if __name__ == "__main__":
+#     app.run(host='0.0.0.0', port=4011, debug=True)

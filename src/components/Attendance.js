@@ -31,7 +31,6 @@ import {
   useDeleteAttendanceMutation,
   useGetAttendanceQuery,
 } from '../actions/zkTecoApi';
-import useAuth from './hooks/UseAuth';
 import MetaData from './utils/metaData';
 import MakingReport from './minicomp/MakingReport';
 import MAKINGSUMMERYSHEET from './minicomp/MakingSummary';

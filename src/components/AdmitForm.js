@@ -30,7 +30,7 @@ import {
   useGetUsersQuery,
 } from '../actions/zkTecoApi';
 
-export default function AdmitForm(rowData) {
+export default function AdmitForm(data) {
   const { t } = useTranslation();
   const { data: departmentData, isLoading: departmentLoading } =
     useGetDepartmentsQuery();
@@ -71,7 +71,7 @@ export default function AdmitForm(rowData) {
     photo: null,
   };
 
-  const [preData, setPreData] = useState(rowData?.rowData || defaultValues);
+  const [preData, setPreData] = useState(data?.rowData || defaultValues);
 
   const formik = useFormik({
     enableReinitialize: true,
@@ -118,7 +118,7 @@ export default function AdmitForm(rowData) {
   }, [preData?.photo_path]);
 
   useEffect(() => {
-    if (formik.values.user_type === 'student') {
+    if (formik.values.user_type === 'student' && !data?.rowData) {
       const code =
         classes?.find((c) => c.name === formik.values.class_name)
           ?.code_number || 0;
@@ -150,7 +150,9 @@ export default function AdmitForm(rowData) {
 
   return (
     <Box sx={{ mx: 'auto', p: 3 }}>
-      <Typography variant="h5">{t('newUserForm')}</Typography>
+      <Typography variant="h5">
+        {!data?.rowData ? t('newUserForm') : t('updateUserForm')}
+      </Typography>
 
       <Box component="form" onSubmit={formik.handleSubmit} noValidate>
         <Grid container spacing={1.5}>
@@ -243,7 +245,6 @@ export default function AdmitForm(rowData) {
               >
                 <MenuItem value="male">{t('male')}</MenuItem>
                 <MenuItem value="female">{t('female')}</MenuItem>
-                <MenuItem value="other">{t('other')}</MenuItem>
               </Select>
               <FormHelperText>
                 {formik.touched.gender && formik.errors.gender}
@@ -541,6 +542,7 @@ export default function AdmitForm(rowData) {
               type="number"
               size="small"
               label={t('idNo')}
+              disabled={data?.rowData}
               value={formik.values.user_id}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
@@ -578,7 +580,7 @@ export default function AdmitForm(rowData) {
                 {t('clear')}
               </Button>
               <Button disableElevation type="submit" variant="contained">
-                {t('save')}
+                {!data?.rowData ? t('save') : t('update')}
               </Button>
             </Stack>
           </Grid>

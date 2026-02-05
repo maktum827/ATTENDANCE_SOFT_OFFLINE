@@ -1,5 +1,5 @@
 // React and Hooks
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 // Material UI Components
@@ -7,9 +7,6 @@ import {
   Box,
   Paper,
   Typography,
-  List,
-  ListItem,
-  ListItemText,
   Button,
   Grid,
   Tooltip,

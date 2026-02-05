@@ -39,11 +39,12 @@ import LoadingScreen from './minicomp/LoadingScreen';
 import useZKTecoStream from './utils/useZKTecoStream';
 
 export default function Dashboard() {
-  // useZKTecoStream();
+  useZKTecoStream();
   const { logo, is_active: isActive } = useAuth();
   const { t } = useTranslation();
   const theme = useTheme();
   const [shift, setShift] = useState('');
+
   const { data: userData } = useGetUsersQuery();
   const users = useMemo(() => userData?.users || [], [userData]);
   const latestPunch = useSelector((state) => state.punch.latestPunch);
@@ -101,16 +102,16 @@ export default function Dashboard() {
     const filteredAttendance = Attendance?.filter(
       (att) =>
         att.condition === 'entry' &&
-        att.shift === shift &&
+        att.shift_name === shift &&
         dayjs(att.created_at).format('YYYY-MM-DD') === targetDate,
     );
 
     filteredAttendance?.forEach((att) => {
-      const idNo = att.id_no;
+      const idNo = att.user_id;
       const user = users.find((s) => s.user_id === idNo);
       if (!user) return;
 
-      const className = user.admitted_class?.trim();
+      const className = user.class_name?.trim();
       if (!className) return;
 
       if (!summary[shift][className]) {
@@ -132,7 +133,7 @@ export default function Dashboard() {
     });
 
     users.forEach((user) => {
-      const className = user.admitted_class?.trim();
+      const className = user.class_name?.trim();
       if (!className) return;
 
       if (!summary[shift][className]) {

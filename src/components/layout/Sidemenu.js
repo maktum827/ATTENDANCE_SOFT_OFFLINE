@@ -23,7 +23,6 @@ import {
 import AssuredWorkloadIcon from '@mui/icons-material/AssuredWorkload';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import GavelIcon from '@mui/icons-material/Gavel';
-import SmsFailedOutlinedIcon from '@mui/icons-material/SmsFailedOutlined';
 
 export default function SideBarMenu({ handleClickMenu }) {
   const { t } = useTranslation();
@@ -41,20 +40,6 @@ export default function SideBarMenu({ handleClickMenu }) {
 
   const handleClick = (key) => {
     // if (!isDateValid && key !== 'settings') return;
-
-    // check authentication
-    // const allowedTypes = {
-    //     adminis: ['principal', 'admin', 'councilMember', 'superUser'],
-    //     education: ['education', 'principal', 'admin', 'councilMember', 'superUser'],
-    //     accounts: ['accountant', 'principal', 'admin', 'councilMember', 'superUser'],
-    //     boarding: ['boardingSuper', 'principal', 'admin', 'councilMember', 'superUser'],
-    //     donation: ['accountant', 'education', 'principal', 'admin', 'councilMember', 'superUser'],
-    // };
-
-    // if (allowedTypes[key] && !allowedTypes[key].includes(type)) {
-    //     enqueueSnackbar(t('authorRequired'), { variant: 'error' });
-    //     return;
-    // }
 
     setSelected(key); // for highlighting selected list
     if (

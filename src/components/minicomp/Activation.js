@@ -42,7 +42,7 @@ export default function ActivationWindow({ openWindow, handleClose }) {
         enqueueSnackbar(t('codeExpired'), { variant: 'error' });
       }
     } catch (error) {
-      enqueueSnackbar(error, { variant: 'error' });
+      enqueueSnackbar(error.data.error, { variant: 'error' });
     }
   };
 

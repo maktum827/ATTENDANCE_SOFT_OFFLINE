@@ -1,7 +1,6 @@
 // React and related hooks
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSelector } from 'react-redux';
 import { useSnackbar } from 'notistack';
 
 // MUI components and icons
@@ -11,23 +10,8 @@ import {
   GridActionsCellItem,
 } from '@mui/x-data-grid';
 import CloseIcon from '@mui/icons-material/Close';
-import {
-  Grid,
-  Box,
-  Dialog,
-  Chip,
-  Typography,
-  ButtonGroup,
-  IconButton,
-  Button,
-} from '@mui/material';
-import {
-  AddCircle,
-  AppRegistration,
-  AppRegistrationIcon,
-  Delete,
-  Edit,
-} from '@mui/icons-material';
+import { Grid, Box, Dialog, Chip, ButtonGroup, Button } from '@mui/material';
+import { AddCircle, AppRegistration, Delete, Edit } from '@mui/icons-material';
 
 // Custom components and utilities
 import MetaData from './utils/metaData';
@@ -111,8 +95,6 @@ function CustomToolbar({ handleClick }) {
 export default function USERT() {
   const { t } = useTranslation();
   const { enqueueSnackbar } = useSnackbar();
-  // const dispatch = useDispatch();
-  const { code, logo } = useAuth();
   const [open, setOpen] = React.useState(false);
   const [openForm, setOpenForm] = React.useState(false);
   const [getZkUsers, { data: zkUsers, isLoading }] = useGetZkUsersMutation();
@@ -125,7 +107,7 @@ export default function USERT() {
 
   const [deleteZkUser] = useDeleteZkUserMutation();
 
-  const [selectedRow, setSelectedRow] = useState('');
+  const [selectedRow, setSelectedRow] = useState(null);
 
   useEffect(() => {
     if (devices.length > 0) {
@@ -149,6 +131,7 @@ export default function USERT() {
   };
 
   const handleClick = () => {
+    setSelectedRow(null);
     setOpenForm(true);
   };
 
@@ -173,7 +156,7 @@ export default function USERT() {
 
   const handleClose = () => {
     setOpen(false);
-    getZkUsers({ data: devices, code });
+    getZkUsers(devices);
   };
 
   const columns = useDataGridColumns([
@@ -324,6 +307,8 @@ export default function USERT() {
     return {
       serial: index + 1,
       ...d,
+      id: index,
+      data_id: d.id,
       classOrDesignation: d.class_name || t('designation'),
       // id: d.id,
       // user_id: d.user_id,

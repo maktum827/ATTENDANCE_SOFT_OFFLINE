@@ -207,7 +207,7 @@
     "webpack-merge": "^5.9.0"
   },
   "build": {
-    "productName": "TANZIM ATTENDANCE V-5",
+    "productName": "PRESENT SIR ATTENDANCE V-5",
     "target": [
       "nsis"
     ],
@@ -278,7 +278,7 @@
       "./assets/**",
       "./public/**",
       "./config.json",
-      "./zk_server.exe"
+      "./zk_server_offline.exe"
     ],
     "publish": {
       "provider": "github",

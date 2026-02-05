@@ -14,23 +14,16 @@ import axios from 'axios';
 
 export default async function SENDSMS({
   apiKey,
-  mobile = '',
   senderNumber = '',
   userMessages,
 }) {
-  return;
   try {
     const response = await axios.post(
       'http://bulksmsbd.net/api/smsapimany',
       {
         api_key: apiKey,
         senderid: senderNumber,
-        messages: [
-          {
-            to: mobile,
-            message: userMessages,
-          },
-        ],
+        messages: userMessages,
       },
       {
         headers: { 'Content-Type': 'application/json' },

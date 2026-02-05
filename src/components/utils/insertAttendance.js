@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useMemo } from 'react';
 import {
   useGetDevicesQuery,
@@ -8,6 +9,7 @@ import SENDSMS from './sendSmsService';
 import getSmsBalance from './getSmsBalance';
 
 export default function useInsertAttendance() {
+  const { t } = useTranslation();
   const { data } = useGetDevicesQuery();
   const { data: smsServiceData } = useGetSmsServiceQuery();
   const devices = useMemo(() => data?.devices || [], [data]);
@@ -21,23 +23,32 @@ export default function useInsertAttendance() {
         try {
           setLoading(true); // ✅ start loading
           const insertedData = await insertPastLogs(devices).unwrap();
-          console.log(insertedData);
 
           const apiKey = smsServiceData?.sms_service?.config;
           const result = await getSmsBalance(apiKey);
 
-          if (result?.smsBalance > 1) {
-            // sending messages
-            // const handleSend = async () => {
-            //   await SENDSMS({
-            //     apiKey: smsServiceData?.sms_service?.config,
-            //     senderNumber: smsServiceData?.sms_service?.sender_id,
-            //     mobile: '01746841988',
-            //     userMessages: 'This is the test message',
-            //   });
-            // };
-            // handleSend();
-          }
+          insertedData?.results.forEach((device) => {
+            if (Array.isArray(device.sms_infos)) {
+              device.sms_infos.forEach((sms) => {
+                if (result?.smsBalance > 1) {
+                  console.log(sms);
+                  SENDSMS({
+                    apiKey: smsServiceData?.sms_service?.config,
+                    senderNumber: smsServiceData?.sms_service?.sender_id,
+                    mobile: sms?.contact,
+                    userMessages: [
+                      {
+                        to: sms?.contact || '',
+                        message: `${sms.message}\n${sms?.name || ''}\n${t('idNo')}: ${sms.user_id}\n${t('class')}: ${sms.class_name}`,
+                      },
+                    ],
+                  });
+                }
+              });
+            } else {
+              console.log('  No SMS info available');
+            }
+          });
 
           console.log('New attendance data inserted');
         } catch (err) {

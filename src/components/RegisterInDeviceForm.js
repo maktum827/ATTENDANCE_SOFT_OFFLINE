@@ -37,7 +37,6 @@ function DEVICEREGISTERFORM({ closeDialog, rowData }) {
   const { t } = useTranslation();
   const { enqueueSnackbar } = useSnackbar();
   const formRef = useRef(null);
-  const { code } = useAuth();
 
   const [zkNewUser, { isLoading: loading, isSuccess }] =
     useAddZkNewUserMutation();
@@ -107,8 +106,10 @@ function DEVICEREGISTERFORM({ closeDialog, rowData }) {
     const finalData = [newDevices, userData];
 
     try {
-      zkNewUser({ data: finalData, code });
+      const result = await zkNewUser(finalData).unwrap();
+      console.log(result);
     } catch (err) {
+      console.log(err);
       enqueueSnackbar(t('zktecoOffMeesage'), { variant: 'error' });
     }
   };
@@ -304,7 +305,7 @@ function DEVICEREGISTERFORM({ closeDialog, rowData }) {
                 disabled={loading}
                 disableElevation
               >
-                {t('save')}
+                {!rowData.uid ? t('save') : t('update')}
                 {loading && (
                   <CircularProgress
                     size={30}
